@@ -576,6 +576,15 @@ class Runner(_RunnerBase):
                         _logger.success(
                             f"{_lam_sym} = {lambda_value:.5f} complete, speed = {speed:.2f} ns day-1"
                         )
+
+                         # Save the .xml file.
+                        _logger.debug(
+                            f"Saving dynamics .xml for {_lam_sym} = {lambda_value:.5f}"
+                        )
+                        dynamics.to_xml(
+                            f"{self._config.output_directory}/dynamics_{lambda_value:.5f}.xml"
+                        )
+
                 except Exception as e:
                     raise RuntimeError(
                         f"Checkpoint failed for {_lam_sym} = {lambda_value:.5f}: {e}"

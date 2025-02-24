@@ -799,6 +799,12 @@ class RepexRunner(_RunnerBase):
                 if is_final_block:
                     _logger.success(f"{_lam_sym} = {lam:.5f} complete")
 
+                    # Save the .xml file.
+                    _logger.debug(f"Saving dynamics .xml for {_lam_sym} = {lam:.5f}")
+                    dynamics.to_xml(
+                        f"{self._config.output_directory}/dynamics_{lam:.5f}.xml"
+                    )
+
         except Exception as e:
             return False, index, e
 
