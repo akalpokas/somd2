@@ -842,6 +842,7 @@ class RunnerBase:
             "equilibration_time",
             "equilibration_timestep",
             "equilibration_constraints",
+            "multi_conformational_seeding",
             "energy_frequency",
             "save_trajectory",
             "frame_frequency",

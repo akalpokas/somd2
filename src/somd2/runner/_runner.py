@@ -244,6 +244,13 @@ class Runner(_RunnerBase):
         else:
             system = self._system.clone()
 
+            if self._config.multi_conformational_seeding and lambda_value > 0.5:
+                pert_mols = system.molecules("property is_perturbable")
+                for pert_mol in pert_mols:
+                    system.update(pert_mol.molecule().edit().set_property("coordinates", pert_mol.property(pert_mol.property("coordinates1"))).commit())
+
+                _logger.debug(f"Enabling multi-conformational seeding for {_lam_sym} = {lambda_value}")
+
         # GPU platform.
         if self._is_gpu:
             # Get a GPU from the pool.
@@ -577,7 +584,7 @@ class Runner(_RunnerBase):
                             f"{_lam_sym} = {lambda_value:.5f} complete, speed = {speed:.2f} ns day-1"
                         )
 
-                         # Save the .xml file.
+                        # Save the .xml file.
                         _logger.debug(
                             f"Saving dynamics .xml for {_lam_sym} = {lambda_value:.5f}"
                         )
@@ -639,6 +646,15 @@ class Runner(_RunnerBase):
                     _logger.success(
                         f"{_lam_sym} = {lambda_value:.5f} complete, speed = {speed:.2f} ns day-1"
                     )
+
+                    # Save the .xml file.
+                    _logger.debug(
+                        f"Saving dynamics .xml for {_lam_sym} = {lambda_value:.5f}"
+                    )
+                    dynamics.to_xml(
+                        f"{self._config.output_directory}/dynamics_{lambda_value:.5f}.xml"
+                    )
+
                 except Exception as e:
                     raise RuntimeError(
                         f"Final dynamics block for {lam_sym} = {lambda_value:.5f} failed: {e}"
@@ -672,6 +688,12 @@ class Runner(_RunnerBase):
 
             _logger.success(
                 f"{_lam_sym} = {lambda_value:.5f} complete, speed = {speed:.2f} ns day-1"
+            )
+
+            # Save the .xml file.
+            _logger.debug(f"Saving dynamics .xml for {_lam_sym} = {lambda_value:.5f}")
+            dynamics.to_xml(
+                f"{self._config.output_directory}/dynamics_{lambda_value:.5f}.xml"
             )
 
     def _minimisation(
@@ -721,6 +743,7 @@ class Runner(_RunnerBase):
                 "rest2_scale": rest2_scale,
                 "constraint": constraint,
                 "perturbable_constraint": perturbable_constraint,
+                # "restraints": self._config.restraints,
             }
         )
 

@@ -40,7 +40,7 @@ class DynamicsCache:
     A class for caching dynamics objects.
     """
 
-    def __init__(self, system, lambdas, rest2_scale_factors, num_gpus, dynamics_kwargs):
+    def __init__(self, system, lambdas, rest2_scale_factors, num_gpus, multi_conformational_seeding, dynamics_kwargs):
         """
         Constructor.
 
@@ -74,6 +74,7 @@ class DynamicsCache:
         self._lambdas = lambdas
         self._rest2_scale_factors = rest2_scale_factors
         self._states = _np.array(range(len(lambdas)))
+        self._multi_conformational_seeding = multi_conformational_seeding
         self._old_states = _np.array(range(len(lambdas)))
         self._openmm_states = [None] * len(lambdas)
         self._openmm_volumes = [None] * len(lambdas)
@@ -83,7 +84,7 @@ class DynamicsCache:
 
         # Create the dynamics objects.
         self._create_dynamics(
-            system, lambdas, rest2_scale_factors, num_gpus, dynamics_kwargs
+            system, lambdas, rest2_scale_factors, num_gpus, multi_conformational_seeding, dynamics_kwargs
         )
 
     def __setstate__(self, state):
@@ -114,7 +115,7 @@ class DynamicsCache:
         return d
 
     def _create_dynamics(
-        self, system, lambdas, rest2_scale_factors, num_gpus, dynamics_kwargs
+        self, system, lambdas, rest2_scale_factors, num_gpus, multi_conformational_seeding, dynamics_kwargs
     ):
         """
         Create the dynamics objects.
@@ -155,6 +156,14 @@ class DynamicsCache:
             # This is a new simulation.
             else:
                 mols = system
+                
+                if multi_conformational_seeding and lam > 0.5:
+                    pert_mols = mols.molecules("property is_perturbable")
+                    for pert_mol in pert_mols:
+                        mols.update(pert_mol.molecule().edit().set_property("coordinates", pert_mol.property(pert_mol.property("coordinates1"))).commit())
+
+                    _logger.debug(f"Enabling multi-conformational seeding for {_lam_sym} = {lam}")
+
 
             # Overload the device and lambda value.
             dynamics_kwargs["device"] = device
@@ -405,6 +414,7 @@ class RepexRunner(_RunnerBase):
                 self._lambda_values,
                 self._rest2_scale_factors,
                 self._num_gpus,
+                self._config.multi_conformational_seeding,
                 dynamics_kwargs,
             )
         else:
@@ -436,6 +446,7 @@ class RepexRunner(_RunnerBase):
                 self._lambda_values,
                 self._rest2_scale_factors,
                 self._num_gpus,
+                self._config.multi_conformational_seeding,
                 self._dynamics_kwargs,
             )
 
