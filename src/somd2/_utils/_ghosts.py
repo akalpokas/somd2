@@ -71,6 +71,7 @@ def boresch(system, k_hard=100, k_soft=5, optimise_angles=True):
     """
 
     _logger.info(f"Applying Boresch modifications to ghost atom bonded terms")
+    _logger.warning("Disabling the optimisation of angles")
 
     # Check the system is a Sire system.
     if not isinstance(system, (_System, _LegacySystem)):
@@ -728,6 +729,10 @@ def _triple(
                 from sire.legacy.CAS import Symbol
 
                 theta0 = pi / 2.0
+
+                # overwriting the angle function with a new one
+                # theta0 = pi / 1.9198
+                # k_hard = 5
 
                 # Create the new angle function.
                 amber_angle = _SireMM.AmberAngle(k_hard, theta0)

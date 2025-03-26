@@ -858,6 +858,8 @@ class RunnerBase:
             "log_file",
             "overwrite",
             "timeout",
+            "lambda_values",
+            "lambda_schedule"
         ]
         for key in config1.keys():
             if key not in allowed_diffs:
@@ -876,7 +878,7 @@ class RunnerBase:
                     continue
                 elif v1 != v2:
                     raise ValueError(
-                        f"{key} has changed since the last run. This is not allowed when using the restart option."
+                        f"{key} has changed since the last run. This is not allowed when using the restart option. Previous value: {v1}, current value: {v2}"
                     )
 
     def _verify_restart_config(self):
@@ -1301,9 +1303,17 @@ class RunnerBase:
 
         # Process the records.
         for i, f in enumerate(system.getForces()):
-            state = new_context.getState(getEnergy=True, groups={i})
+            state = new_context.getState(getEnergy=True, getForces=True, groups={i})
             header += f"{f.getName():>25}"
             record += f"{state.getPotentialEnergy().value_in_unit(openmm.unit.kilocalories_per_mole):>25.2f}"
+            # if i==0 and self._nrg_sample == 19:
+            #     particle_no = f.getNumParticles()
+            #     for particle in range(particle_no):
+            #         particle_params = f.getParticleParameters(particle)
+            #         record += f"{particle_params} \n"
+            #     forces = state.getForces()
+            #     for j, force in enumerate(forces):
+            #         record += f"Particle: {j}, force={force} \n"
 
         # Write to file.
         if self._nrg_sample == 0:
