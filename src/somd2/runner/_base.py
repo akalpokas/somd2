@@ -237,6 +237,9 @@ class RunnerBase:
                 round(i / (self._config.num_lambda - 1), 5)
                 for i in range(0, self._config.num_lambda)
             ]
+            if self._config.focused_sampling_lambda_range is not None:
+                raise NotImplementedError(
+                    "Focused sampling is not supported when 'lambda_values' is not set.")
 
         # Set the lambda energy list.
         if self._config.lambda_energy is not None:
@@ -298,6 +301,34 @@ class RunnerBase:
                         _logger.error(msg)
                         raise ValueError(msg)
                 self._rest2_scale_factors = self._config.rest2_scale
+
+        # Apply modifications to lambda_values and rest2 scaling based on focused sampling range.
+        if self._config.focused_sampling_lambda_range is not None:
+            self._focused_lambda_values = []
+            self._focused_rest2_scale_factors = []
+
+            # Keep track of the dynamics cache indices to retain.
+            self._focused_lambda_indexes = []
+            for i, (lam, scale) in enumerate(zip(self._config.lambda_values, self._rest2_scale_factors)):
+                if (
+                    lam >= self._config.focused_sampling_lambda_range[0]
+                    and lam <= self._config.focused_sampling_lambda_range[1]
+                ):
+                    self._focused_lambda_values.append(lam)
+                    self._focused_rest2_scale_factors.append(scale)
+                    self._focused_lambda_indexes.append(i)
+
+            self._config.num_lambda = len(self._focused_lambda_values)
+            self._lambda_values = self._focused_lambda_values
+            
+            # Use all lambda values for energy calculations, even if they are outside the focused range.
+            if self._config.lambda_energy is not None:
+                self._lambda_energy = self._config.lambda_energy
+        else:
+            self._focused_lambda_values = None
+            self._focused_rest2_scale_factors = None
+            self._focused_lambda_indexes = None
+
 
         # Apply hydrogen mass repartitioning.
         if self._config.hmr:
@@ -867,6 +898,12 @@ class RunnerBase:
             "overwrite",
             "timeout",
         ]
+        # Allow focused sampling lambda range to change the certain settings to work with the restart.
+        if config1.get("focused_sampling_lambda_range") is not None:
+            allowed_diffs.append("num_lambda")
+            allowed_diffs.append("lambda_energy")
+            allowed_diffs.append("rest2_scale")
+
         for key in config1.keys():
             if key not in allowed_diffs:
                 # Extract the config values.
