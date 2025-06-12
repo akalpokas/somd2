@@ -111,6 +111,8 @@ class Config:
         charge_difference=None,
         com_reset_frequency=10,
         minimise=True,
+        multi_conformational_seeding=False,
+        focused_sampling_lambda_range=None,
         equilibration_time="0 ps",
         equilibration_timestep="1 fs",
         equilibration_constraints=False,
@@ -252,6 +254,15 @@ class Config:
 
         minimise: bool
             Whether to minimise the system before simulation.
+
+        multi_conformational_seeding: bool
+            Whether to seed the simulation with multiple conformations. This
+            will seed lambda states 0-0.5 with molecule0 conformationa and 0.5-1
+            with molecule1 conformations. This is useful for simulations where
+            the two end state conformations are separated by a high energetic barrier.
+
+        focused_sampling_lambda_range: list(float)
+            A list of two floats specifying the range of lambda values to focus sampling on.
 
         equilibration_time: str
             Time interval for equilibration. Only simulations starting from
@@ -1029,6 +1040,31 @@ class Config:
                 "Minimisation is highly recommended for increased stability."
             )
         self._minimise = minimise
+
+    @property
+    def multi_conformational_seeding(self):
+        return self._multi_conformational_seeding
+
+    @multi_conformational_seeding.setter
+    def multi_conformational_seeding(self, multi_conformational_seeding):
+        if not isinstance(multi_conformational_seeding, bool):
+            raise ValueError("'multi_conformational_seeding' must be of type 'bool'")
+        self._multi_conformational_seeding = multi_conformational_seeding
+
+    @property
+    def focused_sampling_lambda_range(self):
+        return self._focused_sampling_lambda_range
+
+    @focused_sampling_lambda_range.setter
+    def focused_sampling_lambda_range(self, focused_sampling_lambda_range):
+        if focused_sampling_lambda_range is not None:
+            if not isinstance(focused_sampling_lambda_range, list):
+                raise TypeError("'focused_sampling_lambda_range' must be of type 'list'")
+            if len(focused_sampling_lambda_range) != 2:
+                raise ValueError("'focused_sampling_lambda_range' must be a list of two floats")
+            if not all(isinstance(x, float) for x in focused_sampling_lambda_range):
+                raise ValueError("'focused_sampling_lambda_range' must be a list of two floats")
+        self._focused_sampling_lambda_range = focused_sampling_lambda_range
 
     @property
     def equilibration_time(self):
