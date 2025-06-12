@@ -128,6 +128,7 @@ class Config:
         com_reset_frequency=10,
         minimise=True,
         multi_conformational_seeding=False,
+        focused_sampling_lambda_range=None,
         equilibration_time="0 ps",
         equilibration_timestep="1 fs",
         equilibration_constraints=False,

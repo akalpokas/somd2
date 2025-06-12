@@ -40,7 +40,7 @@ class DynamicsCache:
     A class for caching dynamics objects.
     """
 
-    def __init__(self, system, lambdas, rest2_scale_factors, num_gpus, multi_conformational_seeding, dynamics_kwargs):
+    def __init__(self, system, lambdas, rest2_scale_factors, num_gpus, multi_conformational_seeding, focused_lambda_indexes, dynamics_kwargs):
         """
         Constructor.
 
@@ -84,7 +84,7 @@ class DynamicsCache:
 
         # Create the dynamics objects.
         self._create_dynamics(
-            system, lambdas, rest2_scale_factors, num_gpus, multi_conformational_seeding, dynamics_kwargs
+            system, lambdas, rest2_scale_factors, num_gpus, multi_conformational_seeding, focused_lambda_indexes, dynamics_kwargs
         )
 
     def __setstate__(self, state):
@@ -115,7 +115,7 @@ class DynamicsCache:
         return d
 
     def _create_dynamics(
-        self, system, lambdas, rest2_scale_factors, num_gpus, multi_conformational_seeding, dynamics_kwargs
+        self, system, lambdas, rest2_scale_factors, num_gpus, multi_conformational_seeding, focused_lambda_indexes, dynamics_kwargs
     ):
         """
         Create the dynamics objects.
@@ -168,7 +168,16 @@ class DynamicsCache:
             # Overload the device and lambda value.
             dynamics_kwargs["device"] = device
             dynamics_kwargs["lambda_value"] = lam
-            dynamics_kwargs["rest2_scale"] = scale
+            if focused_lambda_indexes is not None:
+                # Extract the correct scale factor for the focused lambda index, but we still use the original scale factor list for the dynamics object,
+                # since that is needed for the replica exchange.
+
+                focused_rest2_scale = []
+                for index in focused_lambda_indexes:
+                    focused_rest2_scale.append(rest2_scale_factors[index])
+                dynamics_kwargs["rest2_scale"] = focused_rest2_scale[i]
+            else:
+                dynamics_kwargs["rest2_scale"] = scale
 
             # Create the dynamics object.
             try:
@@ -415,6 +424,7 @@ class RepexRunner(_RunnerBase):
                 self._rest2_scale_factors,
                 self._num_gpus,
                 self._config.multi_conformational_seeding,
+                self._focused_lambda_indexes,
                 dynamics_kwargs,
             )
         else:
@@ -447,6 +457,7 @@ class RepexRunner(_RunnerBase):
                 self._rest2_scale_factors,
                 self._num_gpus,
                 self._config.multi_conformational_seeding,
+                self._focused_lambda_indexes,
                 self._dynamics_kwargs,
             )
 
@@ -768,7 +779,9 @@ class RepexRunner(_RunnerBase):
                 self._config.energy_frequency,
                 energy_frequency=self._config.energy_frequency,
                 frame_frequency=self._config.frame_frequency,
-                lambda_windows=lambdas,
+
+                # For energy calculation, use values from the base runner, rather than dynamics cache.
+                lambda_windows=self._lambda_energy,
                 rest2_scale_factors=self._rest2_scale_factors,
                 save_velocities=self._config.save_velocities,
                 auto_fix_minimise=True,
@@ -786,6 +799,10 @@ class RepexRunner(_RunnerBase):
                 .iloc[-1, :]
                 .to_numpy()
             )
+
+            # If focused lambda indexes are set, filter the energies to avoid swapping with non-existing dynamics objects.
+            if self._focused_lambda_indexes is not None:
+                energies = energies[self._focused_lambda_indexes]
 
             # Checkpoint.
             if is_checkpoint or is_final_block:
@@ -857,6 +874,10 @@ class RepexRunner(_RunnerBase):
             # Get the dynamics object.
             dynamics = self._dynamics_cache.get(index)
 
+            # Output dynamics .xml file during the dynamics rather than at the end of the run, in case of a crash.
+            dynamics.to_xml(
+                f"{self._config.output_directory}/dynamics_{self._lambda_values[index]:.5f}.xml"
+            )
             # Minimise.
             dynamics.minimise(timeout=self._config.timeout)
 
