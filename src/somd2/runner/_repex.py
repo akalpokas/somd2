@@ -345,10 +345,10 @@ class RepexRunner(_RunnerBase):
             _logger.error(msg)
             raise ValueError(msg)
 
-        if config.lambda_energy is not None:
-            raise ValueError(
-                "'lambda_energy' is not currently supported for replica exchange."
-            )
+        # if config.lambda_energy is not None:
+        #     raise ValueError(
+        #         "'lambda_energy' is not currently supported for replica exchange."
+        #     )
 
         # Call the base class constructor.
         super().__init__(system, config)
