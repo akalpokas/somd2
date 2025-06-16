@@ -425,6 +425,8 @@ class Config:
         self.charge_difference = charge_difference
         self.com_reset_frequency = com_reset_frequency
         self.minimise = minimise
+        self.multi_conformational_seeding = multi_conformational_seeding
+        self.focused_sampling_lambda_range = focused_sampling_lambda_range
         self.equilibration_time = equilibration_time
         self.equilibration_timestep = equilibration_timestep
         self.equilibration_constraints = equilibration_constraints

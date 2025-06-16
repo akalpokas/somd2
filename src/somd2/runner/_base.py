@@ -887,6 +887,7 @@ class RunnerBase:
             "frame_frequency",
             "save_velocities",
             "checkpoint_frequency",
+            "focused_sampling_lambda_range",
             "platform",
             "max_threads",
             "max_gpus",
@@ -903,6 +904,9 @@ class RunnerBase:
             allowed_diffs.append("num_lambda")
             allowed_diffs.append("lambda_energy")
             allowed_diffs.append("rest2_scale")
+            allowed_diffs.append("lambda_values")
+            allowed_diffs.append("lambda_schedule")
+
 
         for key in config1.keys():
             if key not in allowed_diffs:
