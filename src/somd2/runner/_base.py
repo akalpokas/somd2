@@ -320,7 +320,15 @@ class RunnerBase:
 
             self._config.num_lambda = len(self._focused_lambda_values)
             self._lambda_values = self._focused_lambda_values
-            
+
+            _logger.debug(
+                f"Focused lambda values: {self._lambda_values}, "
+            )
+
+            _logger.debug(
+                f"Focused lambda indexes: {self._focused_lambda_indexes}, "
+            )
+
             # Use all lambda values for energy calculations, even if they are outside the focused range.
             if self._config.lambda_energy is not None:
                 self._lambda_energy = self._config.lambda_energy
@@ -794,6 +802,8 @@ class RunnerBase:
         filenames["topology0"] = str(self._config.output_directory / "system0.prm7")
         filenames["topology1"] = str(self._config.output_directory / "system1.prm7")
 
+        # _logger.debug(f"Simulation filenames: {filenames}")
+
         return filenames
 
     def _check_restart(self):
@@ -906,6 +916,9 @@ class RunnerBase:
             allowed_diffs.append("rest2_scale")
             allowed_diffs.append("lambda_values")
             allowed_diffs.append("lambda_schedule")
+            allowed_diffs.append("energy_frequency")
+            allowed_diffs.append("frame_frequency")
+            allowed_diffs.append("output_directory")
 
 
         for key in config1.keys():
@@ -1196,6 +1209,11 @@ class RunnerBase:
         # Get the lambda value.
         lam = self._lambda_values[index]
 
+        # _logger.debug(
+        #     f"Checkpointing with following parameters: "
+        #     f"lambda = {lam:.5f}, block = {block}, index = {index}, lambda_values = {self._lambda_values}, "
+        # )
+
         # Get the energy trajectory.
         df = system.energy_trajectory(to_alchemlyb=True, energy_unit="kT")
 
@@ -1289,16 +1307,25 @@ class RunnerBase:
                 block = self._start_block
 
             # Save the current trajectory chunk to file.
+
+            _logger.debug(
+                f"Saving trajectory chunk for {_lam_sym} = {lam:.5f} at block {block} to file: {self._filenames[index]['trajectory_chunk'] + f'{block}.dcd'}"
+            )
+
             if self._config.save_trajectories:
-                if system.num_frames() > 0:
-                    traj_filename = (
-                        self._filenames[index]["trajectory_chunk"] + f"{block}.dcd"
-                    )
-                    _sr.save(
-                        system.trajectory(),
-                        traj_filename,
-                        format=["DCD"],
-                    )
+                try:
+                    if system.num_frames() > 0:
+                        traj_filename = (
+                            self._filenames[index]["trajectory_chunk"] + f"{block}.dcd"
+                        )
+                        _sr.save(
+                            system.trajectory(),
+                            traj_filename,
+                            format=["DCD"],
+                        )
+                except Exception as e:
+                    _logger.error(f"Error saving trajectory chunk for {_lam_sym} = {lam:.5f} at block {block}: {e}")
+
 
             # Encode the configuration and lambda value as system properties.
             system.set_property("config", self._config.as_dict(sire_compatible=True))
