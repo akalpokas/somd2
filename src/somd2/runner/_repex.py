@@ -168,6 +168,7 @@ class DynamicsCache:
                 focused_rest2_scale = []
                 for index in focused_lambda_indexes:
                     focused_rest2_scale.append(rest2_scale_factors[index])
+                
                 dynamics_kwargs["rest2_scale"] = focused_rest2_scale[i]
             else:
                 dynamics_kwargs["rest2_scale"] = scale
@@ -1032,8 +1033,14 @@ class RepexRunner(_RunnerBase):
             # Get the lambda value.
             lam = lambdas[index]
 
+            _logger.debug(f"Lambdas for index {index}: {lambdas}")
+
             # Get the dynamics object (and GCMC sampler).
             dynamics = self._dynamics_cache.get(index)
+
+            _logger.debug(f"Dynamics cache time info for {_lam_sym} = {lam:.5f}: {dynamics.current_time()}")
+            _logger.debug(f"Dynamics cache loaded energy trajectory for {_lam_sym} = {lam:.5f}: {dynamics.energy_trajectory()}")
+            _logger.debug(f"Dynamics cache loaded lambda for {_lam_sym} = {lam:.5f}: {dynamics.get_lambda()}")
 
             # Commit the current system.
             system = dynamics.commit()
@@ -1167,3 +1174,35 @@ class RepexRunner(_RunnerBase):
             t_ij,
             fmt="%.5f",
         )
+        _logger.debug(
+            f"Replica exchange swap acceptance matrix {t_ij}"
+        )
+
+        # go through the swap matrix and check if swaps are above threshold
+        threshold = 0.1
+        for i, row in enumerate(t_ij):
+            if i > 0 and i < self._config.num_lambda - 1:
+                left_neighbour_swap_value = row[i-1]
+                right_neighbour_swap_value = row[i+1]
+                if left_neighbour_swap_value < threshold or right_neighbour_swap_value < threshold:
+                    _logger.warning(
+                        f"Replica {i} has a swap acceptance value "
+                        f"below the threshold of {threshold}. "
+                        f"This may indicate poor mixing."
+                    )
+            elif i == self._config.num_lambda - 1:
+                left_neighbour_swap_value = row[i-1]
+                if left_neighbour_swap_value < threshold:
+                    _logger.warning(
+                        f"Replica {i} has a swap acceptance value "
+                        f"below the threshold of {threshold}. "
+                        f"This may indicate poor mixing."
+                    )
+            else:
+                right_neighbour_swap_value = row[i+1]
+                if right_neighbour_swap_value < threshold:
+                    _logger.warning(
+                        f"Replica {i} has a swap acceptance value "
+                        f"below the threshold of {threshold}. "
+                        f"This may indicate poor mixing."
+                    )
