@@ -25,6 +25,7 @@ from numba import njit as _njit
 
 import numpy as _np
 import pickle as _pickle
+import sys as _sys
 
 import sire as _sr
 
@@ -177,9 +178,9 @@ class DynamicsCache:
             try:
                 dynamics = mols.dynamics(**dynamics_kwargs)
             except Exception as e:
-                _logger.error(
-                    f"Could not create dynamics object for lambda {lam:.5f}: {e}"
-                )
+                msg = f"Could not create dynamics object for lambda {lam:.5f} on device {device}: {e}"
+                _logger.error(msg)
+                raise RuntimeError(msg) from e
 
             # Append the dynamics object.
             self._dynamics.append(dynamics)
@@ -426,7 +427,7 @@ class RepexRunner(_RunnerBase):
             time = self._system[0].time()
             if time > self._config.runtime - self._config.timestep:
                 _logger.success(f"Simulation already complete. Exiting.")
-                exit(0)
+                _sys.exit(0)
 
             try:
                 with open(self._repex_state, "rb") as f:
@@ -564,7 +565,7 @@ class RepexRunner(_RunnerBase):
                                 raise e
                     except KeyboardInterrupt:
                         _logger.error("Minimisation cancelled. Exiting.")
-                        exit(1)
+                        _sys.exit(1)
 
         # Equilibrate the system.
         if self._is_equilibration:
@@ -582,7 +583,7 @@ class RepexRunner(_RunnerBase):
                                 raise e
                     except KeyboardInterrupt:
                         _logger.error("Equilibration cancelled. Exiting.")
-                        exit(1)
+                        _sys.exit(1)
 
         # Current block number.
         block = self._start_block
@@ -629,31 +630,7 @@ class RepexRunner(_RunnerBase):
                             results.append((index, energies))
                     except KeyboardInterrupt:
                         _logger.error("Dynamics cancelled. Exiting.")
-                        exit(1)
-            # Checkpoint.
-            if is_checkpoint or i == cycles - 1:
-                for j in range(num_batches):
-                    # Get the indices of the replicas in this batch.
-                    replicas = replica_list[j * num_workers : (j + 1) * num_workers]
-                    with ThreadPoolExecutor(max_workers=num_workers) as executor:
-                        try:
-                            for result, error in executor.map(
-                                self._checkpoint,
-                                replicas,
-                                repeat(self._lambda_values),
-                                repeat(block),
-                                repeat(num_blocks + int(rem > 0)),
-                                repeat(i == cycles - 1),
-                            ):
-                                if not result:
-                                    _logger.error(
-                                        f"Checkpoint failed for {_lam_sym} = {self._lambda_values[index]:.5f}: {error}"
-                                    )
-                                    raise error
-                        except KeyboardInterrupt:
-                            _logger.error("Checkpoint cancelled. Exiting.")
-                            _sys.exit(1)
-
+                        _sys.exit(1)
 
             if i < cycles:
                 # Assemble and energy matrix from the results.
