@@ -630,7 +630,30 @@ class RepexRunner(_RunnerBase):
                             results.append((index, energies))
                     except KeyboardInterrupt:
                         _logger.error("Dynamics cancelled. Exiting.")
-                        _sys.exit(1)
+                        exit(1)
+            # Checkpoint.
+            if is_checkpoint or i == cycles - 1:
+                for j in range(num_batches):
+                    # Get the indices of the replicas in this batch.
+                    replicas = replica_list[j * num_workers : (j + 1) * num_workers]
+                    with ThreadPoolExecutor(max_workers=num_workers) as executor:
+                        try:
+                            for result, error in executor.map(
+                                self._checkpoint,
+                                replicas,
+                                repeat(self._lambda_values),
+                                repeat(block),
+                                repeat(num_blocks + int(rem > 0)),
+                                repeat(i == cycles - 1),
+                            ):
+                                if not result:
+                                    _logger.error(
+                                        f"Checkpoint failed for {_lam_sym} = {self._lambda_values[index]:.5f}: {error}"
+                                    )
+                                    raise error
+                        except KeyboardInterrupt:
+                            _logger.error("Checkpoint cancelled. Exiting.")
+                            exit(1)
 
             if i < cycles:
                 # Assemble and energy matrix from the results.
