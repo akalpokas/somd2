@@ -765,7 +765,8 @@ class RepexRunner(_RunnerBase):
             if is_first_block and self._is_restart:
                 if self._config.minimise:
                     _logger.info(f"Minimising restart at {_lam_sym} = {lam:.5f}")
-                    dynamics.minimise(timeout=self._config.timeout)
+                    _logger.warning("TEMPORARILY DISABLED")
+                    # dynamics.minimise(timeout=self._config.timeout)
 
             _logger.info(f"Running dynamics for {_lam_sym} = {lam:.5f}")
 
@@ -846,7 +847,7 @@ class RepexRunner(_RunnerBase):
                 f"{self._config.output_directory}/dynamics_{self._lambda_values[index]:.5f}.xml"
             )
             # Minimise.
-            dynamics.minimise(timeout=self._config.timeout)
+            dynamics.minimise(timeout=self._config.timeout, tolerance=15)
 
         except Exception as e:
             return False, index, e
@@ -922,7 +923,7 @@ class RepexRunner(_RunnerBase):
                 _logger.info(
                     f"Minimising at {_lam_sym} = {self._lambda_values[index]:.5f}"
                 )
-                dynamics.minimise(timeout=self._config.timeout)
+                dynamics.minimise(timeout=self._config.timeout, tolerance=100)
 
             # Set the new dynamics object.
             self._dynamics_cache.set(index, dynamics)
