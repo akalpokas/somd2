@@ -488,7 +488,7 @@ class Runner(_RunnerBase):
 
         # Create the dynamics object.
         dynamics = system.dynamics(**dynamics_kwargs)
-        dynamics.to_xml(f"dynamics_{lambda_value:.5f}.xml")
+        dynamics.to_xml(f"{self._config.output_directory}/dynamics_{lambda_value:.5f}.xml")
 
         # Set the number of neighbours used for the energy calculation.
         # If not None, then we add one to account for the extra windows
