@@ -765,8 +765,7 @@ class RepexRunner(_RunnerBase):
             if is_first_block and self._is_restart:
                 if self._config.minimise:
                     _logger.info(f"Minimising restart at {_lam_sym} = {lam:.5f}")
-                    _logger.warning("TEMPORARILY DISABLED")
-                    # dynamics.minimise(timeout=self._config.timeout)
+                    dynamics.minimise(timeout=self._config.timeout)
 
             _logger.info(f"Running dynamics for {_lam_sym} = {lam:.5f}")
 

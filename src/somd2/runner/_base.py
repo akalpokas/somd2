@@ -1270,8 +1270,14 @@ class RunnerBase:
                 # Glob for the trajectory chunks.
                 from glob import glob
 
+                import re
                 traj_chunks = sorted(
-                    glob(f"{self._filenames[index]['trajectory_chunk']}*")
+                    glob(f"{self._filenames[index]['trajectory_chunk']}*"),
+                    key=lambda x: int(re.search(r'(\d+)\.dcd$', x).group(1))
+                )
+
+                _logger.debug(
+                    f"Trajectory chunks to be combined: {traj_chunks}"
                 )
 
                 # If this is a restart, then we need to check for an existing

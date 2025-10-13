@@ -374,6 +374,7 @@ class Runner(_RunnerBase):
                     device=device,
                     constraint=constraint,
                     perturbable_constraint=perturbable_constraint,
+                    restraints=self._config.restraints,
                 )
             except Exception as e:
                 raise RuntimeError(f"Minimisation failed: {e}")
@@ -404,6 +405,7 @@ class Runner(_RunnerBase):
                             if not self._config.equilibration_constraints
                             else self._config.perturbable_constraint
                         ),
+                        "restraints": self._config.restraints,
                     }
                 )
 
@@ -416,7 +418,7 @@ class Runner(_RunnerBase):
                     energy_frequency=0,
                     frame_frequency=0,
                     save_velocities=False,
-                    auto_fix_minimise=True,
+                    auto_fix_minimise=False,
                 )
 
                 # Commit the system.
@@ -438,6 +440,7 @@ class Runner(_RunnerBase):
                         device=device,
                         constraint=self._config.constraint,
                         perturbable_constraint=self._config.perturbable_constraint,
+                        restraints=self._config.restraints,
                     )
             except Exception as e:
                 raise RuntimeError(f"Equilibration failed: {e}")
@@ -483,6 +486,7 @@ class Runner(_RunnerBase):
                 "device": device,
                 "lambda_value": lambda_value,
                 "rest2_scale": rest2_scale,
+                "restraints": self._config.restraints,
             }
         )
 
@@ -526,7 +530,7 @@ class Runner(_RunnerBase):
                         lambda_windows=lambda_array,
                         rest2_scale_factors=rest2_scale_factors,
                         save_velocities=self._config.save_velocities,
-                        auto_fix_minimise=True,
+                        auto_fix_minimise=False,
                         num_energy_neighbours=num_energy_neighbours,
                         null_energy=self._config.null_energy,
                     )
@@ -592,7 +596,7 @@ class Runner(_RunnerBase):
                         lambda_windows=lambda_array,
                         rest2_scale_factors=rest2_scale_factors,
                         save_velocities=self._config.save_velocities,
-                        auto_fix_minimise=True,
+                        auto_fix_minimise=False,
                         num_energy_neighbours=num_energy_neighbours,
                         null_energy=self._config.null_energy,
                     )
@@ -643,7 +647,7 @@ class Runner(_RunnerBase):
                     lambda_windows=lambda_array,
                     rest2_scale_factors=rest2_scale_factors,
                     save_velocities=self._config.save_velocities,
-                    auto_fix_minimise=True,
+                    auto_fix_minimise=False,
                     num_energy_neighbours=num_energy_neighbours,
                     null_energy=self._config.null_energy,
                 )
@@ -680,6 +684,7 @@ class Runner(_RunnerBase):
         device=None,
         constraint="none",
         perturbable_constraint="none",
+        restraints=None,
     ):
         """
         Minimise a system.
@@ -719,8 +724,11 @@ class Runner(_RunnerBase):
                 "rest2_scale": rest2_scale,
                 "constraint": constraint,
                 "perturbable_constraint": perturbable_constraint,
+                "restraints": restraints,
             }
         )
+
+        _logger.debug(f"Dynamics kwargs: {dynamics_kwargs}")
 
         try:
             # Create a dynamics object.
