@@ -159,6 +159,13 @@ class DynamicsCache:
             else:
                 mols = system
 
+                if multi_conformational_seeding and lam > 0.5:
+                    pert_mols = mols.molecules("property is_perturbable")
+                    for pert_mol in pert_mols:
+                        mols.update(pert_mol.molecule().edit().set_property("coordinates", pert_mol.property(pert_mol.property("coordinates1"))).commit())
+
+                    _logger.debug(f"Enabling multi-conformational seeding for {lam}")
+
             # Overload the device and lambda value.
             dynamics_kwargs["device"] = device
             dynamics_kwargs["lambda_value"] = lam
