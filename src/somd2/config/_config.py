@@ -70,6 +70,7 @@ class Config:
             "charge_scaled_morph",
             "ring_break_morph",
             "reverse_ring_break_morph",
+            "decharge_decouple",
         ],
         "log_level": [level.lower() for level in _logger._core.levels],
     }
@@ -1241,6 +1242,24 @@ class Config:
                     self._lambda_schedule.set_equation(
                         stage="potential_swap",
                         lever="torsion_phase",
+                        equation=self._lambda_schedule.final(),
+                    )
+                elif lambda_schedule == "decharge_decouple":
+                    self._lambda_schedule = _LambdaSchedule()
+                    self._lambda_schedule.add_decouple_stage()
+                    self._lambda_schedule.prepend_stage(
+                        "decharge", self._lambda_schedule.initial()
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="decharge",
+                        lever="charge",
+                        equation=(1 - self._lambda_schedule.lam())
+                        * self._lambda_schedule.initial()
+                        + self._lambda_schedule.lam() * self._lambda_schedule.final(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="decouple",
+                        lever="charge",
                         equation=self._lambda_schedule.final(),
                     )
             else:
