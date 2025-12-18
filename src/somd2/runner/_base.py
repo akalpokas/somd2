@@ -1166,6 +1166,7 @@ class RunnerBase:
                 _logger.error(
                     f"The following files already exist, use --overwrite to overwrite them: {list(set((deleted_str)))} \n"
                 )
+                _logger.error(f"Configuration: {self._config.as_dict()}, {self._config}")
                 _exit(1)
             # Loop over files to be deleted, ignoring duplicates.
             for file in list(set(deleted)):
