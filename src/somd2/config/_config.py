@@ -71,6 +71,7 @@ class Config:
             "ring_break_morph",
             "reverse_ring_break_morph",
             "decharge_decouple",
+            "restraints_morph",
         ],
         "log_level": [level.lower() for level in _logger._core.levels],
     }
@@ -992,6 +993,13 @@ class Config:
                     self._lambda_schedule = _LambdaSchedule.standard_morph()
                 elif lambda_schedule == "charge_scaled_morph":
                     self._lambda_schedule = _LambdaSchedule.charge_scaled_morph(0.2)
+                elif lambda_schedule == "restraints_morph":
+                    self._lambda_schedule = _LambdaSchedule.standard_morph()
+                    self._lambda_schedule.set_equation(
+                        stage="morph",
+                        lever="restraint",
+                        equation=0 + self._lambda_schedule.lam(),
+                    )
                 elif lambda_schedule == "ring_break_morph":
                     self._lambda_schedule = _LambdaSchedule.standard_morph()
                     self._lambda_schedule.prepend_stage(

@@ -1322,6 +1322,8 @@ class RunnerBase:
             "max_gpus",
             "restart",
             "save_trajectories",
+            "lambda_values",
+            "lambda_schedule",
             "write_config",
             "log_level",
             "log_file",
