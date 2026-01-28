@@ -1,7 +1,7 @@
 ######################################################################
 # SOMD2: GPU accelerated alchemical free-energy engine.
 #
-# Copyright: 2023-2025
+# Copyright: 2023-2026
 #
 # Authors: The OpenBioSim Team <team@openbiosim.org>
 #
@@ -281,6 +281,15 @@ class DynamicsCache:
                     f"Created GCMC sampler for lambda {lam:.5f} on device {device}"
                 )
 
+                # Log the initial position of the GCMC sphere.
+                if self._gcmc_samplers[i]._reference is not None:
+                    positions = _sr.io.get_coords_array(mols)
+                    target = self._gcmc_samplers[i]._get_target_position(positions)
+                    _logger.info(
+                        f"Initial GCMC sphere centre for lambda {lam:.5f} on device {device}: "
+                        f"[{target[0]:.3f}, {target[1]:.3f}, {target[2]:.3f}] A"
+                    )
+
             # Create the dynamics object.
             try:
                 dynamics = mols.dynamics(**dynamics_kwargs)
@@ -320,15 +329,15 @@ class DynamicsCache:
                 # Work out the memory used by this dynamics object and GCMC sampler.
                 mem_used = used_mem - used_mem_before
 
-                # Work out the estimate for all replicas on this device.
-                est_total = mem_used * contexts_per_device[device]
+                # Work out the estimated total after all replicas have been created.
+                est_total = mem_used * contexts_per_device[device] + used_mem_before
 
                 # If this exceeds the total memory, raise an error.
                 if est_total > total_mem:
                     msg = (
                         f"Not enough memory on device {device} for all assigned replicas. "
-                        f"Estimated memory usage: {est_total / 1e9:.2f} GB, "
-                        f"Available memory: {total_mem / 1e9:.2f} GB."
+                        f"Estimated memory usage: {est_total / (1024**3):.2f} GB, "
+                        f"Available memory: {total_mem / (1024**3):.2f} GB."
                     )
                     _logger.error(msg)
                     raise MemoryError(msg)
@@ -338,8 +347,15 @@ class DynamicsCache:
                     _logger.warning(
                         f"Device {device} will have less than 20% free memory "
                         f"after creating all assigned replicas. "
-                        f"{est_total / 1e9:.2f} GB, "
-                        f"Available memory: {total_mem / 1e9:.2f} GB."
+                        f"{est_total / (1024**3):.2f} GB, "
+                        f"Available memory: {total_mem / (1024**3):.2f} GB."
+                    )
+
+                else:
+                    _logger.info(
+                        f"Estimated memory usage on device {device} after creating all replicas: "
+                        f"{est_total / (1024**3):.2f} GB, "
+                        f"Available memory: {total_mem / (1024**3):.2f} GB."
                     )
 
             _logger.info(
@@ -506,34 +522,78 @@ class DynamicsCache:
         return self._num_swaps
 
     @staticmethod
-    def _check_device_memory(index):
+    def _check_device_memory(device_index=0):
         """
-        Check the memory usage of the specified CUDA device.
+        Check the memory usage of the specified GPU device.
 
         Parameters
         ----------
 
         index: int
-            The index of the CUDA device.
+            The index of the GPU device.
         """
-        try:
-            from pynvml import (
-                nvmlInit,
-                nvmlShutdown,
-                nvmlDeviceGetHandleByIndex,
-                nvmlDeviceGetMemoryInfo,
-            )
+        import pyopencl as cl
 
-            nvmlInit()
-            handle = nvmlDeviceGetHandleByIndex(index)
-            info = nvmlDeviceGetMemoryInfo(handle)
-            result = (info.used, info.free, info.total)
-            nvmlShutdown()
-        except Exception as e:
-            msg = f"Could not determine memory usage for device {index}: {e}"
+        # Get the device.
+        platforms = cl.get_platforms()
+        all_devices = []
+        for platform in platforms:
+            try:
+                devices = platform.get_devices(device_type=cl.device_type.GPU)
+                all_devices.extend(devices)
+            except:
+                continue
+
+        if device_index >= len(all_devices):
+            msg = f"Device index {device_index} out of range. Found {len(all_devices)} GPU(s)."
             _logger.error(msg)
+            raise IndexError(msg)
 
-        return result
+        device = all_devices[device_index]
+        total = device.global_mem_size
+
+        # NVIDIA: Use pynvml
+        if "NVIDIA" in device.vendor:
+            try:
+                import pynvml
+
+                pynvml.nvmlInit()
+
+                # Find matching device by name
+                device_count = pynvml.nvmlDeviceGetCount()
+                for i in range(device_count):
+                    handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+                    name = pynvml.nvmlDeviceGetName(handle)
+
+                    if name in device.name or device.name in name:
+                        memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                        pynvml.nvmlShutdown()
+                        return (memory.used, memory.free, memory.total)
+
+                pynvml.nvmlShutdown()
+            except Exception as e:
+                msg = f"Could not get NVIDIA GPU memory info for device {device_index}: {e}"
+                _logger.error(msg)
+                raise RuntimeError(msg) from e
+
+        # AMD: Use OpenCL extension
+        elif "AMD" in device.vendor or "Advanced Micro Devices" in device.vendor:
+            try:
+                free_memory_info = device.get_info(0x4038)
+                free_kb = (
+                    free_memory_info[0]
+                    if isinstance(free_memory_info, list)
+                    else free_memory_info
+                )
+                free = free_kb * 1024
+                used = total - free
+                return (used, free, total)
+            except Exception as e:
+                msg = (
+                    f"Could not get AMD GPU memory info for device {device_index}: {e}"
+                )
+                _logger.error(msg)
+                raise RuntimeError(msg) from e
 
 
 class RepexRunner(_RunnerBase):
@@ -573,9 +633,12 @@ class RepexRunner(_RunnerBase):
         # Call the base class constructor.
         super().__init__(system, config)
 
-        # Make sure we're using the CUDA platform.
-        if self._config.platform != "cuda":
-            msg = "Currently replica exchange simulations can only be run on the CUDA platform."
+        # Make sure we're using the CUDA or OpenCL platform.
+        if self._config.platform not in ["cuda", "opencl"]:
+            msg = (
+                "Currently replica exchange simulations can only be "
+                "run on the CUDA and OpenCL platforms."
+            )
             _logger.error(msg)
             raise ValueError(msg)
 
@@ -940,7 +1003,7 @@ class RepexRunner(_RunnerBase):
                         ]
                         with ThreadPoolExecutor(max_workers=num_workers) as executor:
                             try:
-                                for result, error in executor.map(
+                                for index, error in executor.map(
                                     self._backup_checkpoint,
                                     replicas,
                                 ):
@@ -964,7 +1027,7 @@ class RepexRunner(_RunnerBase):
                         ]
                         with ThreadPoolExecutor(max_workers=num_workers) as executor:
                             try:
-                                for result, error in executor.map(
+                                for index, error in executor.map(
                                     self._checkpoint,
                                     replicas,
                                     repeat(self._lambda_values),
@@ -1525,6 +1588,15 @@ class RepexRunner(_RunnerBase):
 
         is_final_block: bool
             Whether this is the final block.
+
+        Returns
+        -------
+
+        index: int
+            The index of the replica.
+
+        exception: Exception
+            The exception if the checkpoint failed.
         """
         try:
             # Get the lambda value.
@@ -1545,9 +1617,12 @@ class RepexRunner(_RunnerBase):
 
             # Call the base class checkpoint method to save the system state.
             with self._lock:
-                super()._checkpoint(
+                index, error = super()._checkpoint(
                     system, index, block, speed, is_final_block=is_final_block
                 )
+
+                if error is not None:
+                    return index, error
 
             # Delete all trajectory frames from the Sire system within the
             # dynamics object.
@@ -1574,10 +1649,10 @@ class RepexRunner(_RunnerBase):
             if is_final_block:
                 _logger.success(f"{_lam_sym} = {lam:.5f} complete")
 
-            return True, None
+            return index, None
 
         except Exception as e:
-            return False, e
+            return index, e
 
     @staticmethod
     @_njit

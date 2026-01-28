@@ -1,7 +1,7 @@
 ######################################################################
 # SOMD2: GPU accelerated alchemical free-energy engine.
 #
-# Copyright: 2023-2025
+# Copyright: 2023-2026
 #
 # Authors: The OpenBioSim Team <team@openbiosim.org>
 #
@@ -1913,7 +1913,10 @@ class Config:
     @perturbed_system.setter
     def perturbed_system(self, perturbed_system):
         if perturbed_system is not None:
-            if isinstance(perturbed_system, str):
+            if isinstance(perturbed_system, _sr.system.System):
+                self._perturbed_system = perturbed_system
+                self._perturbed_system_file = None
+            elif isinstance(perturbed_system, str):
                 import os
 
                 if not os.path.exists(perturbed_system):
@@ -1929,7 +1932,9 @@ class Config:
                         f"Unable to load 'perturbed_system' stream file: {e}"
                     )
             else:
-                raise TypeError("'perturbed_system' must be of type 'str'")
+                raise TypeError(
+                    "'perturbed_system' must be of type 'sr.system.System' or 'str'"
+                )
         else:
             self._perturbed_system = None
             self._perturbed_system_file = None
