@@ -377,37 +377,58 @@ class RunnerBase:
         # Set the REST2 scale factors.
         is_rest2 = False
         if self._config.rest2_scale is not None:
-            # Single value. Interpolate between 1.0 at the end states and rest2_scale
-            # at lambda = 0.5.
-            if isinstance(self._config.rest2_scale, float):
-                scale_factors = []
-                for lambda_value in self._lambda_energy:
-                    scale_factors.append(
-                        1.0
-                        + (self._config.rest2_scale - 1.0)
-                        * (1.0 - 2.0 * abs(lambda_value - 0.5))
-                    )
-                self._rest2_scale_factors = scale_factors
-            else:
-                if len(self._config.rest2_scale) != len(self._lambda_energy):
-                    msg = f"Length of 'rest2_scale' must match the number of {_lam_sym} values."
-                    if is_missing:
-                        msg += f"If you have omitted some 'lambda_values` from `lambda_energy`, please "
-                        f"add them to `lambda_energy`, along with the corresponding `rest2_scale` values."
+            if self._config.rest2_scaling_function == "linear":
+                # Single value. Interpolate between 1.0 at the end states and rest2_scale
+                # at lambda = 0.5.
+                if isinstance(self._config.rest2_scale, float):
+                    scale_factors = []
+                    for lambda_value in self._lambda_energy:
+                        scale_factors.append(
+                            1.0
+                            + (self._config.rest2_scale - 1.0)
+                            * (1.0 - 2.0 * abs(lambda_value - 0.5))
+                        )
+                    self._rest2_scale_factors = scale_factors
+                else:
+                    if len(self._config.rest2_scale) != len(self._lambda_energy):
+                        msg = f"Length of 'rest2_scale' must match the number of {_lam_sym} values."
+                        if is_missing:
+                            msg += f"If you have omitted some 'lambda_values` from `lambda_energy`, please "
+                            f"add them to `lambda_energy`, along with the corresponding `rest2_scale` values."
                     _logger.error(msg)
                     raise ValueError(msg)
-                # Make sure the end states are close to 1.0.
+            elif self._config.rest2_scaling_function == "exponential_ramp":
+                self._lambda_energy = self._lambda_values
+                # Single value. Interpolate from 1 at the first window to rest2 at the end state in an exponential fashion.
+                # The formula lam_i = 1 * (rest2_scale/1)**(i/(n-1)) where i is the index of the window and n is the number of windows.
+                if isinstance(self._config.rest2_scale, float):
+                    scale_factors = []
+                    for lambda_value in self._lambda_energy:
+                        scale_factors.append(
+                            1.0 * (self._config.rest2_scale / 1.0) ** (lambda_value / 1.0)
+                        )
+                    self._rest2_scale_factors = scale_factors
+                else:
+                    if len(self._config.rest2_scale) != len(self._lambda_energy):
+                        msg = f"Length of 'rest2_scale' must match the number of {_lam_sym} values."
+                        if is_missing:
+                            msg += f"If you have omitted some 'lambda_values` from `lambda_energy`, please "
+                            f"add them to `lambda_energy`, along with the corresponding `rest2_scale` values."
+                    _logger.error(msg)
+                    raise ValueError(msg)
+                # Make sure the end states are close to 1.0, except for the case where the user wants to scale the end state in the exponential ramp.
                 if isclose(self._lambda_energy[0], 0.0, abs_tol=1e-4):
-                    if not isclose(self._config.rest2_scale[0], 1.0, abs_tol=1e-4):
+                    if not isclose(self._rest2_scale_factors[0], 1.0, abs_tol=1e-4):
                         msg = f"'rest2_scale' must be 1.0 at {_lam_sym}=0."
                         _logger.error(msg)
                         raise ValueError(msg)
-                if isclose(self._lambda_energy[-1], 1.0, abs_tol=1e-4):
-                    if not isclose(self._config.rest2_scale[-1], 1.0, abs_tol=1e-4):
-                        msg = f"'rest2_scale' must be 1.0 at {_lam_sym}=1."
-                        _logger.error(msg)
-                        raise ValueError(msg)
-                self._rest2_scale_factors = self._config.rest2_scale
+                if self._config.rest2_scaling_function == "linear":
+                    if isclose(self._lambda_energy[-1], 1.0, abs_tol=1e-4):
+                        if not isclose(self._rest2_scale_factors[-1], 1.0, abs_tol=1e-4):
+                            msg = f"'rest2_scale' must be 1.0 at {_lam_sym}=1."
+                            _logger.error(msg)
+                            raise ValueError(msg)
+                # self._rest2_scale_factors = self._config.rest2_scale
 
             # If there are any non-zero REST2 scale factors, then log it.
             if any(
