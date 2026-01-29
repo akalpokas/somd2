@@ -150,6 +150,7 @@ class Config:
         gcmc_bulk_sampling_probability=0.1,
         gcmc_tolerance=0.0,
         rest2_scale=1.0,
+        rest2_scaling_function="linear",
         rest2_selection=None,
         output_directory="output",
         restart=False,
@@ -422,6 +423,9 @@ class Config:
             values are used, then the number should match the number of lambda windows at which
             energies are sampled.
 
+        rest2_scaling_function: str
+            The functional form of the REST2 scaling. Options are "linear" and "exponential_ramp".
+
         rest2_selection: str
             A sire selection string for atoms to include in the REST2 region in
             addition to any perturbable molecules. For example, "molidx 0 and residx 0,1,2"
@@ -555,6 +559,7 @@ class Config:
         self.gcmc_bulk_sampling_probability = gcmc_bulk_sampling_probability
         self.gcmc_tolerance = gcmc_tolerance
         self.rest2_scale = rest2_scale
+        self.rest2_scaling_function = rest2_scaling_function
         self.rest2_selection = rest2_selection
         self.restart = restart
         self.use_backup = use_backup
@@ -2138,6 +2143,16 @@ class Config:
         if len(rest2_scale) == 1:
             rest2_scale = rest2_scale[0]
         self._rest2_scale = rest2_scale
+
+    @property
+    def rest2_scaling_function(self):
+        return self._rest2_scaling_function
+
+    @rest2_scaling_function.setter
+    def rest2_scaling_function(self, rest2_scaling_function):
+        if rest2_scaling_function not in ["linear", "exponential_ramp"]:
+            raise ValueError("'rest2_scaling_function' must be 'linear' or 'exponential_ramp'")
+        self._rest2_scaling_function = rest2_scaling_function
 
     @property
     def rest2_selection(self):

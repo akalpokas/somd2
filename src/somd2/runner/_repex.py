@@ -235,10 +235,10 @@ class DynamicsCache:
 
             # If we've not seen this device before then get the memory statistics
             # prior to creating the dynamics object and GCMC sampler.
-            if device not in devices:
-                used_mem_before, free_mem_before, total_mem = self._check_device_memory(
-                    device
-                )
+            # if device not in devices:
+            #     used_mem_before, free_mem_before, total_mem = self._check_device_memory(
+            #         device
+            #     )
 
             # This is a restart, get the system for this replica.
             if isinstance(system, list):
@@ -323,40 +323,40 @@ class DynamicsCache:
                 # Add the device to the set of visited devices.
                 devices.add(device)
 
-                # Get the current memory usage.
-                used_mem, free_mem, total_mem = self._check_device_memory(device)
+                # # Get the current memory usage.
+                # used_mem, free_mem, total_mem = self._check_device_memory(device)
 
-                # Work out the memory used by this dynamics object and GCMC sampler.
-                mem_used = used_mem - used_mem_before
+                # # Work out the memory used by this dynamics object and GCMC sampler.
+                # mem_used = used_mem - used_mem_before
 
-                # Work out the estimated total after all replicas have been created.
-                est_total = mem_used * contexts_per_device[device] + used_mem_before
+                # # Work out the estimated total after all replicas have been created.
+                # est_total = mem_used * contexts_per_device[device] + used_mem_before
 
-                # If this exceeds the total memory, raise an error.
-                if est_total > total_mem:
-                    msg = (
-                        f"Not enough memory on device {device} for all assigned replicas. "
-                        f"Estimated memory usage: {est_total / (1024**3):.2f} GB, "
-                        f"Available memory: {total_mem / (1024**3):.2f} GB."
-                    )
-                    _logger.error(msg)
-                    raise MemoryError(msg)
+                # # If this exceeds the total memory, raise an error.
+                # if est_total > total_mem:
+                #     msg = (
+                #         f"Not enough memory on device {device} for all assigned replicas. "
+                #         f"Estimated memory usage: {est_total / (1024**3):.2f} GB, "
+                #         f"Available memory: {total_mem / (1024**3):.2f} GB."
+                #     )
+                #     _logger.error(msg)
+                #     raise MemoryError(msg)
 
-                # If there's less than 20% free memory, raise a warning.
-                elif ((total_mem - est_total) / total_mem) < 0.2:
-                    _logger.warning(
-                        f"Device {device} will have less than 20% free memory "
-                        f"after creating all assigned replicas. "
-                        f"{est_total / (1024**3):.2f} GB, "
-                        f"Available memory: {total_mem / (1024**3):.2f} GB."
-                    )
+                # # If there's less than 20% free memory, raise a warning.
+                # elif ((total_mem - est_total) / total_mem) < 0.2:
+                #     _logger.warning(
+                #         f"Device {device} will have less than 20% free memory "
+                #         f"after creating all assigned replicas. "
+                #         f"{est_total / (1024**3):.2f} GB, "
+                #         f"Available memory: {total_mem / (1024**3):.2f} GB."
+                #     )
 
-                else:
-                    _logger.info(
-                        f"Estimated memory usage on device {device} after creating all replicas: "
-                        f"{est_total / (1024**3):.2f} GB, "
-                        f"Available memory: {total_mem / (1024**3):.2f} GB."
-                    )
+                # else:
+                #     _logger.info(
+                #         f"Estimated memory usage on device {device} after creating all replicas: "
+                #         f"{est_total / (1024**3):.2f} GB, "
+                #         f"Available memory: {total_mem / (1024**3):.2f} GB."
+                #     )
 
             _logger.info(
                 f"Created dynamics object for lambda {lam:.5f} on device {device}"
