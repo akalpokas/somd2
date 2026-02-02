@@ -121,6 +121,7 @@ class Config:
         minimise=True,
         minimisation_constraints=False,
         minimisation_errors=False,
+        multi_conformational_seeding=False,
         equilibration_time="0 ps",
         equilibration_timestep="2 fs",
         equilibration_constraints=True,
@@ -300,6 +301,12 @@ class Config:
 
         minimisation_errors: bool
             Whether to raise an exception if a minimisation fails to converge.
+
+        multi_conformational_seeding: bool
+            Whether to seed the simulation with multiple conformations. This
+            will seed lambda states <= 0.5 with molecule0 conformation and lambda states > 0.5
+            with molecule1 conformations. This is useful for simulations where
+            the two end state conformations are separated by a high energetic barrier.        
 
         equilibration_time: str
             Time interval for equilibration. Only simulations starting from
@@ -1557,6 +1564,16 @@ class Config:
         if not isinstance(minimisation_errors, bool):
             raise ValueError("'minimisation_errors' must be of type 'bool'")
         self._minimisation_errors = minimisation_errors
+
+    @property
+    def multi_conformational_seeding(self):
+        return self._multi_conformational_seeding
+
+    @multi_conformational_seeding.setter
+    def multi_conformational_seeding(self, multi_conformational_seeding):
+        if not isinstance(multi_conformational_seeding, bool):
+            raise ValueError("'multi_conformational_seeding' must be of type 'bool'")
+        self._multi_conformational_seeding = multi_conformational_seeding
 
     @property
     def equilibration_time(self):

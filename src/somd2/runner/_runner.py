@@ -290,8 +290,12 @@ class Runner(_RunnerBase):
                     f"time remaining = {self._config.runtime - time}"
                 )
         else:
-            system = self._system.clone()
+            if self._config.multi_conformational_seeding and lambda_value > 0.5:
+                pert_mols = system.molecules("property is_perturbable")
+                for pert_mol in pert_mols:
+                    system.update(pert_mol.molecule().edit().set_property("coordinates", pert_mol.property(pert_mol.property("coordinates1"))).commit())
 
+                _logger.debug(f"Enabling multi-conformational seeding for {_lam_sym} = {lambda_value}")
         # GPU platform.
         if self._is_gpu:
             # Get a GPU from the pool.

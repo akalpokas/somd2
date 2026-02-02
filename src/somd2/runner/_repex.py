@@ -49,6 +49,7 @@ class DynamicsCache:
         lambdas,
         rest2_scale_factors,
         num_gpus,
+        multi_conformational_seeding,
         dynamics_kwargs,
         gcmc_kwargs=None,
         output_directory=None,
@@ -72,6 +73,11 @@ class DynamicsCache:
 
         num_gpus: int
             The number of GPUs to use.
+
+        multi_conformational_seeding: bool
+            Whether to seed the simulation with multiple conformations. This
+            will seed lambda states <= 0.5 with molecule0 conformation and
+            lambda states > 0.5 with molecule1 conformation.
 
         dynamics_kwargs: dict
             A dictionary of default dynamics keyword arguments.
@@ -104,6 +110,7 @@ class DynamicsCache:
         self._states = _np.array(range(len(lambdas)))
         self._old_states = _np.array(range(len(lambdas)))
         self._openmm_states = [None] * len(lambdas)
+        self._multi_conformational_seeding = multi_conformational_seeding
         self._gcmc_samplers = [None] * len(lambdas)
         self._gcmc_states = [None] * len(lambdas)
         self._num_proposed = _np.matrix(_np.zeros((len(lambdas), len(lambdas))))
@@ -116,6 +123,7 @@ class DynamicsCache:
             lambdas,
             rest2_scale_factors,
             num_gpus,
+            multi_conformational_seeding,
             dynamics_kwargs,
             gcmc_kwargs=gcmc_kwargs,
             output_directory=output_directory,
@@ -158,6 +166,7 @@ class DynamicsCache:
         lambdas,
         rest2_scale_factors,
         num_gpus,
+        multi_conformational_seeding,
         dynamics_kwargs,
         gcmc_kwargs=None,
         output_directory=None,
@@ -246,6 +255,12 @@ class DynamicsCache:
             # This is a new simulation.
             else:
                 mols = system
+                if multi_conformational_seeding and lam > 0.5:
+                    pert_mols = mols.molecules("property is_perturbable")
+                    for pert_mol in pert_mols:
+                        mols.update(pert_mol.molecule().edit().set_property("coordinates", pert_mol.property(pert_mol.property("coordinates1"))).commit())
+
+                    _logger.debug(f"Enabling multi-conformational seeding for {_lam_sym} = {lam}")
 
             # Overload the device and lambda value.
             dynamics_kwargs["device"] = device
@@ -714,6 +729,7 @@ class RepexRunner(_RunnerBase):
                 self._lambda_values,
                 self._rest2_scale_factors,
                 self._num_gpus,
+                self._config.multi_conformational_seeding,
                 dynamics_kwargs,
                 gcmc_kwargs=self._gcmc_kwargs,
                 perturbed_positions=self._perturbed_positions,
@@ -749,6 +765,7 @@ class RepexRunner(_RunnerBase):
                 self._lambda_values,
                 self._rest2_scale_factors,
                 self._num_gpus,
+                self._config.multi_conformational_seeding,
                 self._dynamics_kwargs,
                 gcmc_kwargs=self._gcmc_kwargs,
                 output_directory=self._config.output_directory,
