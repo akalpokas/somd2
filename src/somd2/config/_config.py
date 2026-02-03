@@ -539,6 +539,7 @@ class Config:
         self.minimise = minimise
         self.minimisation_constraints = minimisation_constraints
         self.minimisation_errors = minimisation_errors
+        self.multi_conformational_seeding = multi_conformational_seeding
         self.equilibration_time = equilibration_time
         self.equilibration_timestep = equilibration_timestep
         self.equilibration_constraints = equilibration_constraints
