@@ -15,7 +15,6 @@ nvidia-ml-py = "*"
 
 [feature.test.dependencies]
 pytest = "*"
-black = "*"
 
 [feature.lint.dependencies]
 pre-commit = "*"
@@ -26,3 +25,6 @@ ruff = "*"
 default = []
 test = ["test"]
 dev = ["test", "lint"]
+
+[activation]
+scripts = ["pixi.sh"]
