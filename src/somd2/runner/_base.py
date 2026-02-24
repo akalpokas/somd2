@@ -395,8 +395,9 @@ class RunnerBase:
                         if is_missing:
                             msg += f"If you have omitted some 'lambda_values` from `lambda_energy`, please "
                             f"add them to `lambda_energy`, along with the corresponding `rest2_scale` values."
-                    _logger.error(msg)
-                    raise ValueError(msg)
+                        _logger.error(msg)
+                        raise ValueError(msg)
+                    self._rest2_scale_factors = self._config.rest2_scale
             elif self._config.rest2_scaling_function == "exponential_ramp":
                 self._lambda_energy = self._lambda_values
                 # Single value. Interpolate from 1 at the first window to rest2 at the end state in an exponential fashion.
