@@ -363,16 +363,6 @@ class DynamicsCache:
             info["count"] += 1
             num_contexts = contexts_per_device[device]
 
-<<<<<<< HEAD
-                # # Get the current memory usage.
-                # used_mem, free_mem, total_mem = self._check_device_memory(device)
-
-                # # Work out the memory used by this dynamics object and GCMC sampler.
-                # mem_used = used_mem - used_mem_before
-
-                # # Work out the estimated total after all replicas have been created.
-                # est_total = mem_used * contexts_per_device[device] + used_mem_before
-=======
             # Estimate memory after the first or second replica.
             if info["count"] == 1:
                 used_mem, _, _ = self._check_device_memory(device)
