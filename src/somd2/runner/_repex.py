@@ -224,18 +224,17 @@ class DynamicsCache:
         # Initialise the dynamics object list.
         self._dynamics = []
 
-        # A set of visited device indices.
-        devices = set()
+        # Per-device memory tracking for estimation.
+        device_mem = {}
 
-        # Determine whether there is a remainder in the number of replicas.
+        # Work out how many replicas are assigned to each device.
+        # Replicas are assigned round-robin, so the first (num_replicas % num_gpus)
+        # devices get one extra replica.
+        base = floor(num_replicas / num_gpus)
         remainder = num_replicas % num_gpus
-
-        # Store the number of contexts for each device. The last device will
-        # have remainder contexts, while all others have
-        contexts_per_device = num_replicas * [floor(num_replicas / num_gpus)]
-
-        # Set the last device to have the remainder contexts.
-        contexts_per_device[-1] = remainder
+        contexts_per_device = [
+            base + (1 if i < remainder else 0) for i in range(num_gpus)
+        ]
 
         # Create the dynamics objects in serial.
         for i, (lam, scale) in enumerate(zip(lambdas, rest2_scale_factors)):
@@ -248,7 +247,14 @@ class DynamicsCache:
             #     used_mem_before, free_mem_before, total_mem = self._check_device_memory(
             #         device
             #     )
-
+            # Record baseline memory before the first replica on this device.
+            if device not in device_mem:
+                used_before, _, total_mem = self._check_device_memory(device)
+                device_mem[device] = {
+                    "before": used_before,
+                    "total": total_mem,
+                    "count": 0,
+                }
             # This is a restart, get the system for this replica.
             if isinstance(system, list):
                 mols = system[i]
@@ -261,6 +267,9 @@ class DynamicsCache:
                         mols.update(pert_mol.molecule().edit().set_property("coordinates", pert_mol.property(pert_mol.property("coordinates1"))).commit())
 
                     _logger.debug(f"Enabling multi-conformational seeding for {_lam_sym} = {lam}")
+
+            # Delete an existing trajectory frames.
+            mols.delete_all_frames()
 
             # Overload the device and lambda value.
             dynamics_kwargs["device"] = device
@@ -321,6 +330,22 @@ class DynamicsCache:
             ):
                 from openmm.unit import angstrom
 
+                # Get the positions from the context.
+                positions = (
+                    dynamics.context()
+                    .getState(getPositions=True)
+                    .getPositions(asNumpy=True)
+                ) / angstrom
+
+                # The positions array also contains the ghost water atoms that
+                # were added during the GCMC setup. We need to make sure that
+                # we copy these over to the perturbed positions array.
+                diff = len(positions) - len(perturbed_positions)
+                if diff != 0:
+                    perturbed_positions = _np.concatenate(
+                        [perturbed_positions, positions[-diff:]]
+                    )
+
                 dynamics.context().setPeriodicBoxVectors(*perturbed_box * angstrom)
                 dynamics.context().setPositions(perturbed_positions * angstrom)
 
@@ -333,11 +358,12 @@ class DynamicsCache:
             # Append the dynamics object.
             self._dynamics.append(dynamics)
 
-            # Check the memory footprint for this device.
-            if not device in devices:
-                # Add the device to the set of visited devices.
-                devices.add(device)
+            # Track memory footprint for this device.
+            info = device_mem[device]
+            info["count"] += 1
+            num_contexts = contexts_per_device[device]
 
+<<<<<<< HEAD
                 # # Get the current memory usage.
                 # used_mem, free_mem, total_mem = self._check_device_memory(device)
 
@@ -346,6 +372,40 @@ class DynamicsCache:
 
                 # # Work out the estimated total after all replicas have been created.
                 # est_total = mem_used * contexts_per_device[device] + used_mem_before
+=======
+            # Estimate memory after the first or second replica.
+            if info["count"] == 1:
+                used_mem, _, _ = self._check_device_memory(device)
+                info["after_first"] = used_mem
+
+                if num_contexts == 1:
+                    # Only one replica on this device, use actual measurement.
+                    est_total = used_mem
+                else:
+                    # Wait for the second replica to get the marginal cost.
+                    est_total = None
+
+            elif info["count"] == 2:
+                used_mem, _, _ = self._check_device_memory(device)
+                # The first replica includes one-time context overhead.
+                # The marginal cost of subsequent replicas is the difference
+                # between the second and first.
+                first_cost = info["after_first"] - info["before"]
+                marginal_cost = used_mem - info["after_first"]
+                est_total = (
+                    info["before"] + first_cost + marginal_cost * (num_contexts - 1)
+                )
+                _logger.info(
+                    f"Memory per replica on device {device}: "
+                    f"first = {first_cost / (1024**2):.0f} MiB, "
+                    f"marginal = {marginal_cost / (1024**2):.0f} MiB"
+                )
+            else:
+                est_total = None
+
+            if est_total is not None:
+                total_mem = info["total"]
+>>>>>>> upstream/feature_ring_break
 
                 # # If this exceeds the total memory, raise an error.
                 # if est_total > total_mem:
@@ -432,7 +492,6 @@ class DynamicsCache:
         index: int
             The index of the replica.
         """
-        from openmm.unit import angstrom
 
         # Get the current OpenMM state.
         state = (
@@ -547,54 +606,59 @@ class DynamicsCache:
         index: int
             The index of the GPU device.
         """
-        import pyopencl as cl
 
-        # Get the device.
-        platforms = cl.get_platforms()
-        all_devices = []
-        for platform in platforms:
-            try:
-                devices = platform.get_devices(device_type=cl.device_type.GPU)
-                all_devices.extend(devices)
-            except:
-                continue
+        # Try to use pyopencl to detect the GPU vendor.
+        vendor = None
+        ocl_device = None
+        try:
+            import pyopencl as cl
 
-        if device_index >= len(all_devices):
-            msg = f"Device index {device_index} out of range. Found {len(all_devices)} GPU(s)."
-            _logger.error(msg)
-            raise IndexError(msg)
+            platforms = cl.get_platforms()
+            all_devices = []
+            for platform in platforms:
+                try:
+                    devices = platform.get_devices(device_type=cl.device_type.GPU)
+                    all_devices.extend(devices)
+                except Exception:
+                    continue
 
-        device = all_devices[device_index]
-        total = device.global_mem_size
+            if device_index < len(all_devices):
+                ocl_device = all_devices[device_index]
+                vendor = ocl_device.vendor
+            else:
+                msg = f"Device index {device_index} out of range. Found {len(all_devices)} GPU(s)."
+                _logger.error(msg)
+                raise IndexError(msg)
+        except IndexError:
+            raise
+        except Exception:
+            _logger.warning(
+                "Could not query GPU platform via OpenCL; falling back to pynvml for NVIDIA detection."
+            )
 
-        # NVIDIA: Use pynvml
-        if "NVIDIA" in device.vendor:
+        # NVIDIA: Use pynvml (also used as fallback when OpenCL is unavailable).
+        if vendor is None or "NVIDIA" in vendor:
             try:
                 import pynvml
 
                 pynvml.nvmlInit()
-
-                # Find matching device by name
-                device_count = pynvml.nvmlDeviceGetCount()
-                for i in range(device_count):
-                    handle = pynvml.nvmlDeviceGetHandleByIndex(i)
-                    name = pynvml.nvmlDeviceGetName(handle)
-
-                    if name in device.name or device.name in name:
-                        memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
-                        pynvml.nvmlShutdown()
-                        return (memory.used, memory.free, memory.total)
-
+                handle = pynvml.nvmlDeviceGetHandleByIndex(device_index)
+                memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
                 pynvml.nvmlShutdown()
+                return (memory.used, memory.free, memory.total)
             except Exception as e:
-                msg = f"Could not get NVIDIA GPU memory info for device {device_index}: {e}"
+                if vendor is None:
+                    msg = f"Could not get GPU memory info for device {device_index} via OpenCL or pynvml: {e}"
+                else:
+                    msg = f"Could not get NVIDIA GPU memory info for device {device_index}: {e}"
                 _logger.error(msg)
                 raise RuntimeError(msg) from e
 
-        # AMD: Use OpenCL extension
-        elif "AMD" in device.vendor or "Advanced Micro Devices" in device.vendor:
+        # AMD: Use OpenCL extension.
+        elif "AMD" in vendor or "Advanced Micro Devices" in vendor:
             try:
-                free_memory_info = device.get_info(0x4038)
+                total = ocl_device.global_mem_size
+                free_memory_info = ocl_device.get_info(0x4038)
                 free_kb = (
                     free_memory_info[0]
                     if isinstance(free_memory_info, list)
@@ -737,11 +801,17 @@ class RepexRunner(_RunnerBase):
                 output_directory=self._config.output_directory,
             )
         else:
+            _logger.debug("Restarting from file")
+
             # Check to see if the simulation is already complete.
             time = self._system[0].time()
             if time > self._config.runtime - self._config.timestep:
-                _logger.success(f"Simulation already complete. Exiting.")
+                _logger.success("Simulation already complete. Exiting.")
                 _sys.exit(0)
+            else:
+                _logger.info(
+                    f"Restarting at time {time}, time remaining = {self._config.runtime - time}"
+                )
 
             try:
                 with open(self._repex_state, "rb") as f:
@@ -844,28 +914,28 @@ class RepexRunner(_RunnerBase):
         else:
             cycles = int(ceil(cycles))
 
-        if self._config.checkpoint_frequency.value() > 0.0:
+        # Store the current checkpoint frequency.
+        checkpoint_frequency = self._config.checkpoint_frequency
+
+        if checkpoint_frequency.value() > 0.0:
             # Calculate the number of blocks and the remainder time.
-            frac = (self._config.runtime / self._config.checkpoint_frequency).value()
+            frac = (self._config.runtime / checkpoint_frequency).value()
 
             # Handle the case where the runtime is less than the checkpoint frequency.
             if frac < 1.0:
                 frac = 1.0
-                self._config.checkpoint_frequency = str(self._config.runtime)
+                checkpoint_frequency = self._config.runtime
 
             num_blocks = int(frac)
             rem = round(frac - num_blocks, 12)
 
             # Work out the number of repex cycles per block.
-            frac = (
-                self._config.checkpoint_frequency.value()
-                / self._config.energy_frequency.value()
-            )
+            frac = (checkpoint_frequency / self._config.energy_frequency).value()
 
             # Handle the case where the checkpoint frequency is less than the energy frequency.
             if frac < 1.0:
                 frac = 1.0
-                self._config.checkpoint_frequency = str(self._config.energy_frequency)
+                checkpoint_frequency = self._config.energy_frequency
 
             # Store the number of repex cycles per block.
             cycles_per_checkpoint = int(frac)
@@ -1014,8 +1084,7 @@ class RepexRunner(_RunnerBase):
                     for j in range(num_checkpoint_batches):
                         # Get the indices of the replicas in this batch.
                         replicas = replica_list[
-                            j
-                            * num_checkpoint_workers : (j + 1)
+                            j * num_checkpoint_workers : (j + 1)
                             * num_checkpoint_workers
                         ]
                         with ThreadPoolExecutor(max_workers=num_workers) as executor:
@@ -1038,8 +1107,7 @@ class RepexRunner(_RunnerBase):
                     for j in range(num_checkpoint_batches):
                         # Get the indices of the replicas in this batch.
                         replicas = replica_list[
-                            j
-                            * num_checkpoint_workers : (j + 1)
+                            j * num_checkpoint_workers : (j + 1)
                             * num_checkpoint_workers
                         ]
                         with ThreadPoolExecutor(max_workers=num_workers) as executor:
@@ -1052,7 +1120,7 @@ class RepexRunner(_RunnerBase):
                                     repeat(num_blocks + int(rem > 0)),
                                     repeat(i == cycles - 1),
                                 ):
-                                    if not result:
+                                    if error:
                                         _logger.error(
                                             f"Checkpoint failed for {_lam_sym} = "
                                             f"{self._lambda_values[index]:.5f}: {error}"
