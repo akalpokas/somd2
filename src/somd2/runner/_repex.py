@@ -395,7 +395,6 @@ class DynamicsCache:
 
             if est_total is not None:
                 total_mem = info["total"]
->>>>>>> upstream/feature_ring_break
 
                 # # If this exceeds the total memory, raise an error.
                 # if est_total > total_mem:
