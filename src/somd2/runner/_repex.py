@@ -1262,7 +1262,7 @@ class RepexRunner(_RunnerBase):
             _logger.info(f"Running dynamics at {_lam_sym} = {lam:.5f}")
 
             # Draw new velocities from the Maxwell-Boltzmann distribution.
-            dynamics.randomise_velocities()
+            # dynamics.randomise_velocities()
 
             # Perform a GCMC move. For repex this needs to be done before the
             # dynamics block so that the final energies, which are used in the
