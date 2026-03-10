@@ -652,7 +652,7 @@ class Config:
         for attr, value in self.__dict__.items():
             if attr.startswith("_extra") or attr.startswith("extra"):
                 continue
-            attr_l = attr[1:]
+            attr_l = attr[1:] if attr.startswith("_") else attr
             if isinstance(value, _Path):
                 d[attr_l] = str(value)
             else:
