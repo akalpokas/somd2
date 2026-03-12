@@ -74,6 +74,7 @@ class Config:
             "decharge_decouple",
             "restraints_morph",
             "restraints_off_morph",
+            "restraints_on_morph_restraints_off",
         ],
         "log_level": [level.lower() for level in _logger._core.levels],
     }
@@ -1032,6 +1033,30 @@ class Config:
                     self._lambda_schedule = _LambdaSchedule.standard_morph()
                     self._lambda_schedule.set_equation(
                         stage="morph",
+                        lever="restraint",
+                        equation=1 - self._lambda_schedule.lam(),
+                    )
+
+                elif lambda_schedule == "restraints_on_morph_restraints_off":
+                    self._lambda_schedule = _LambdaSchedule.standard_morph()
+                    self._lambda_schedule.prepend_stage(
+                        "restraints_on", self._lambda_schedule.initial()
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="restraints_on",
+                        lever="restraint",
+                        equation=0 + self._lambda_schedule.lam(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="morph",
+                        lever="restraint",
+                        equation=1,
+                    )
+                    self._lambda_schedule.append_stage(
+                        "restraints_off", self._lambda_schedule.final()
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="restraints_off",
                         lever="restraint",
                         equation=1 - self._lambda_schedule.lam(),
                     )
