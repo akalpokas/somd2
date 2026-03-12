@@ -123,6 +123,7 @@ class Config:
         minimisation_constraints=False,
         minimisation_errors=False,
         multi_conformational_seeding=False,
+        multi_conformational_seeding_lambda_threshold=0.5,
         equilibration_time="0 ps",
         equilibration_timestep="2 fs",
         equilibration_constraints=True,
@@ -305,9 +306,15 @@ class Config:
 
         multi_conformational_seeding: bool
             Whether to seed the simulation with multiple conformations. This
-            will seed lambda states <= 0.5 with molecule0 conformation and lambda states > 0.5
+            will seed lambda states <= multi_conformational_seeding_lambda_threshold with molecule0
+            conformation and lambda states > multi_conformational_seeding_lambda_threshold
             with molecule1 conformations. This is useful for simulations where
             the two end state conformations are separated by a high energetic barrier.
+        
+        multi_conformational_seeding_lambda_threshold: float
+            The lambda threshold for multi conformational seeding. Lambda states less than this
+            value will be seeded with molecule0 conformations, and lambda states greater or equal to this
+            value will be seeded with molecule1 conformations. This should be between 0 and 1, and default is 0.5.
 
         equilibration_time: str
             Time interval for equilibration. Only simulations starting from
@@ -541,6 +548,7 @@ class Config:
         self.minimisation_constraints = minimisation_constraints
         self.minimisation_errors = minimisation_errors
         self.multi_conformational_seeding = multi_conformational_seeding
+        self.multi_conformational_seeding_lambda_threshold = multi_conformational_seeding_lambda_threshold
         self.equilibration_time = equilibration_time
         self.equilibration_timestep = equilibration_timestep
         self.equilibration_constraints = equilibration_constraints
@@ -1735,6 +1743,18 @@ class Config:
         if not isinstance(multi_conformational_seeding, bool):
             raise ValueError("'multi_conformational_seeding' must be of type 'bool'")
         self._multi_conformational_seeding = multi_conformational_seeding
+
+    @property
+    def multi_conformational_seeding_lambda_threshold(self):
+        return self._multi_conformational_seeding_lambda_threshold
+
+    @multi_conformational_seeding_lambda_threshold.setter
+    def multi_conformational_seeding_lambda_threshold(self, multi_conformational_seeding_lambda_threshold):
+        if not isinstance(multi_conformational_seeding_lambda_threshold, (int, float)):
+            raise ValueError("'multi_conformational_seeding_lambda_threshold' must be of type 'int' or 'float'")
+        if not 0 <= multi_conformational_seeding_lambda_threshold <= 1:
+            raise ValueError("'multi_conformational_seeding_lambda_threshold' must be a value between 0 and 1")
+        self._multi_conformational_seeding_lambda_threshold = multi_conformational_seeding_lambda_threshold
 
     @property
     def equilibration_time(self):

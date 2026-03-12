@@ -50,6 +50,7 @@ class DynamicsCache:
         rest2_scale_factors,
         num_gpus,
         multi_conformational_seeding,
+        multi_conformational_seeding_lambda_threshold,
         dynamics_kwargs,
         gcmc_kwargs=None,
         output_directory=None,
@@ -78,6 +79,12 @@ class DynamicsCache:
             Whether to seed the simulation with multiple conformations. This
             will seed lambda states <= 0.5 with molecule0 conformation and
             lambda states > 0.5 with molecule1 conformation.
+
+        multi_conformational_seeding_lambda_threshold: float
+            The lambda threshold for multi conformational seeding. Lambda states less than
+            this value will be seeded with molecule0 conformations, and lambda states greater than or equal to
+            this value will be seeded with molecule1 conformations. This should be a value between 0
+            and 1, and is only used if 'multi_conformational_seeding' is set to True.
 
         dynamics_kwargs: dict
             A dictionary of default dynamics keyword arguments.
@@ -111,6 +118,7 @@ class DynamicsCache:
         self._old_states = _np.array(range(len(lambdas)))
         self._openmm_states = [None] * len(lambdas)
         self._multi_conformational_seeding = multi_conformational_seeding
+        self._multi_conformational_seeding_lambda_threshold = multi_conformational_seeding_lambda_threshold
         self._gcmc_samplers = [None] * len(lambdas)
         self._gcmc_states = [None] * len(lambdas)
         self._num_proposed = _np.matrix(_np.zeros((len(lambdas), len(lambdas))))
@@ -124,6 +132,7 @@ class DynamicsCache:
             rest2_scale_factors,
             num_gpus,
             multi_conformational_seeding,
+            multi_conformational_seeding_lambda_threshold,
             dynamics_kwargs,
             gcmc_kwargs=gcmc_kwargs,
             output_directory=output_directory,
@@ -167,6 +176,7 @@ class DynamicsCache:
         rest2_scale_factors,
         num_gpus,
         multi_conformational_seeding,
+        multi_conformational_seeding_lambda_threshold,
         dynamics_kwargs,
         gcmc_kwargs=None,
         output_directory=None,
@@ -190,6 +200,12 @@ class DynamicsCache:
 
         num_gpus: int
             The number of GPUs to use.
+
+        multi_conformational_seeding: bool
+            Whether to seed the simulation with multiple conformations.
+
+        multi_conformational_seeding_lambda_threshold: float
+            The lambda threshold for multi conformational seeding.
 
         dynamics_kwargs: dict
             A dictionary of default dynamics keyword arguments.
@@ -261,12 +277,25 @@ class DynamicsCache:
             # This is a new simulation.
             else:
                 mols = system
-                if multi_conformational_seeding and lam > 0.5:
+                if (
+                    multi_conformational_seeding
+                    and lam >= multi_conformational_seeding_lambda_threshold
+                ):
                     pert_mols = mols.molecules("property is_perturbable")
                     for pert_mol in pert_mols:
-                        mols.update(pert_mol.molecule().edit().set_property("coordinates", pert_mol.property(pert_mol.property("coordinates1"))).commit())
+                        mols.update(
+                            pert_mol.molecule()
+                            .edit()
+                            .set_property(
+                                "coordinates",
+                                pert_mol.property(pert_mol.property("coordinates1")),
+                            )
+                            .commit()
+                        )
 
-                    _logger.debug(f"Enabling multi-conformational seeding for {_lam_sym} = {lam}")
+                    _logger.debug(
+                        f"Enabling multi-conformational seeding for {_lam_sym} = {lam}"
+                    )
 
             # Delete an existing trajectory frames.
             mols.delete_all_frames()
@@ -783,6 +812,7 @@ class RepexRunner(_RunnerBase):
                 self._rest2_scale_factors,
                 self._num_gpus,
                 self._config.multi_conformational_seeding,
+                self._config.multi_conformational_seeding_lambda_threshold,
                 dynamics_kwargs,
                 gcmc_kwargs=self._gcmc_kwargs,
                 perturbed_positions=self._perturbed_positions,
@@ -825,6 +855,7 @@ class RepexRunner(_RunnerBase):
                 self._rest2_scale_factors,
                 self._num_gpus,
                 self._config.multi_conformational_seeding,
+                self._config.multi_conformational_seeding_lambda_threshold,
                 self._dynamics_kwargs,
                 gcmc_kwargs=self._gcmc_kwargs,
                 output_directory=self._config.output_directory,
@@ -1078,7 +1109,8 @@ class RepexRunner(_RunnerBase):
                     for j in range(num_checkpoint_batches):
                         # Get the indices of the replicas in this batch.
                         replicas = replica_list[
-                            j * num_checkpoint_workers : (j + 1)
+                            j
+                            * num_checkpoint_workers : (j + 1)
                             * num_checkpoint_workers
                         ]
                         with ThreadPoolExecutor(max_workers=num_workers) as executor:
@@ -1101,7 +1133,8 @@ class RepexRunner(_RunnerBase):
                     for j in range(num_checkpoint_batches):
                         # Get the indices of the replicas in this batch.
                         replicas = replica_list[
-                            j * num_checkpoint_workers : (j + 1)
+                            j
+                            * num_checkpoint_workers : (j + 1)
                             * num_checkpoint_workers
                         ]
                         with ThreadPoolExecutor(max_workers=num_workers) as executor:

@@ -290,7 +290,7 @@ class Runner(_RunnerBase):
                     f"time remaining = {self._config.runtime - time}"
                 )
         else:
-            if self._config.multi_conformational_seeding and lambda_value > 0.5:
+            if self._config.multi_conformational_seeding and lambda_value >= self._config.multi_conformational_seeding_lambda_threshold:
                 pert_mols = system.molecules("property is_perturbable")
                 for pert_mol in pert_mols:
                     system.update(pert_mol.molecule().edit().set_property("coordinates", pert_mol.property(pert_mol.property("coordinates1"))).commit())
