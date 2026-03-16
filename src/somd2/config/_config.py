@@ -75,6 +75,7 @@ class Config:
             "restraints_morph",
             "restraints_off_morph",
             "restraints_on_morph_restraints_off",
+            "double_restraints_morph",
         ],
         "log_level": [level.lower() for level in _logger._core.levels],
     }
@@ -311,7 +312,7 @@ class Config:
             conformation and lambda states > multi_conformational_seeding_lambda_threshold
             with molecule1 conformations. This is useful for simulations where
             the two end state conformations are separated by a high energetic barrier.
-        
+
         multi_conformational_seeding_lambda_threshold: float
             The lambda threshold for multi conformational seeding. Lambda states less than this
             value will be seeded with molecule0 conformations, and lambda states greater or equal to this
@@ -549,7 +550,9 @@ class Config:
         self.minimisation_constraints = minimisation_constraints
         self.minimisation_errors = minimisation_errors
         self.multi_conformational_seeding = multi_conformational_seeding
-        self.multi_conformational_seeding_lambda_threshold = multi_conformational_seeding_lambda_threshold
+        self.multi_conformational_seeding_lambda_threshold = (
+            multi_conformational_seeding_lambda_threshold
+        )
         self.equilibration_time = equilibration_time
         self.equilibration_timestep = equilibration_timestep
         self.equilibration_constraints = equilibration_constraints
@@ -1060,6 +1063,24 @@ class Config:
                         lever="restraint",
                         equation=1 - self._lambda_schedule.lam(),
                     )
+                elif lambda_schedule == "double_restraints_morph":
+                    self._lambda_schedule.set_equation(
+                        stage="morph", lever="restraint1", equation=1
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="morph",
+                        lever="restraint2",
+                        equation=0 + self._lambda_schedule.lam(),
+                    )
+                    self._lambda_schedule.append_stage(
+                        "restraints_off", self._lambda_schedule.final()
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="restraints_off",
+                        lever="restraint1",
+                        equation=1 - self._lambda_schedule.lam(),
+                    )
+
                 elif lambda_schedule == "ring_break_morph":
                     self._lambda_schedule = _LambdaSchedule.standard_morph()
                     self._lambda_schedule.prepend_stage(
@@ -1774,12 +1795,20 @@ class Config:
         return self._multi_conformational_seeding_lambda_threshold
 
     @multi_conformational_seeding_lambda_threshold.setter
-    def multi_conformational_seeding_lambda_threshold(self, multi_conformational_seeding_lambda_threshold):
+    def multi_conformational_seeding_lambda_threshold(
+        self, multi_conformational_seeding_lambda_threshold
+    ):
         if not isinstance(multi_conformational_seeding_lambda_threshold, (int, float)):
-            raise ValueError("'multi_conformational_seeding_lambda_threshold' must be of type 'int' or 'float'")
+            raise ValueError(
+                "'multi_conformational_seeding_lambda_threshold' must be of type 'int' or 'float'"
+            )
         if not 0 <= multi_conformational_seeding_lambda_threshold <= 1:
-            raise ValueError("'multi_conformational_seeding_lambda_threshold' must be a value between 0 and 1")
-        self._multi_conformational_seeding_lambda_threshold = multi_conformational_seeding_lambda_threshold
+            raise ValueError(
+                "'multi_conformational_seeding_lambda_threshold' must be a value between 0 and 1"
+            )
+        self._multi_conformational_seeding_lambda_threshold = (
+            multi_conformational_seeding_lambda_threshold
+        )
 
     @property
     def equilibration_time(self):
