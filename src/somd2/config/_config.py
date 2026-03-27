@@ -73,6 +73,7 @@ class Config:
             "ring_break_morph_angles_torsions_first",
             "reverse_ring_break_morph",
             "decouple",
+            "perturb_coulomb_lj",
             "decharge_decouple",
             "restraints_morph",
             "restraints_off_morph",
@@ -1604,6 +1605,14 @@ class Config:
                 elif lambda_schedule == "decouple":
                     self._lambda_schedule = _LambdaSchedule()
                     self._lambda_schedule.add_decouple_stage()
+
+                elif lambda_schedule == "perturb_coulomb_lj":
+                    self._lambda_schedule.append_stage("coulomb", self._lambda_schedule.initial())
+                    self._lambda_schedule.set_equation(stage="coulomb", lever="charge", equation=(1 - self._lambda_schedule.lam())* self._lambda_schedule.initial() + self._lambda_schedule.lam() * self._lambda_schedule.final())
+                    self._lambda_schedule.append_stage("lj", self._lambda_schedule.initial())
+                    self._lambda_schedule.set_equation(stage="lj", lever="charge", equation=self._lambda_schedule.final())
+                    self._lambda_schedule.set_equation(stage="lj", lever="sigma", equation=(1 - self._lambda_schedule.lam())* self._lambda_schedule.initial() + self._lambda_schedule.lam() * self._lambda_schedule.final())
+                    self._lambda_schedule.set_equation(stage="lj", lever="epsilon", equation=(1 - self._lambda_schedule.lam())* self._lambda_schedule.initial() + self._lambda_schedule.lam() * self._lambda_schedule.final())
                 elif lambda_schedule == "decharge_decouple":
                     self._lambda_schedule = _LambdaSchedule()
                     self._lambda_schedule.add_decouple_stage()
