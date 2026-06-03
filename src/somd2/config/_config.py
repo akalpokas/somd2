@@ -82,6 +82,8 @@ class Config:
             "restraints_off_morph",
             "restraints_on_morph_restraints_off",
             "double_restraints_morph",
+            "restraints_off_no_morph",
+            "restraints_on_no_morph",
         ],
         "log_level": [level.lower() for level in _logger._core.levels],
     }
@@ -1677,6 +1679,14 @@ class Config:
                         lever="charge",
                         equation=self._lambda_schedule.final(),
                     )
+                elif lambda_schedule == "restraints_on_no_morph":
+                    self._lambda_schedule = _LambdaSchedule()
+                    self._lambda_schedule.add_stage("restraints_on", self._lambda_schedule.initial())
+                    self._lambda_schedule.set_equation(stage="restraints_on", lever="restraint", equation=0+self._lambda_schedule.lam())
+                elif lambda_schedule == "restraints_off_no_morph":
+                    self._lambda_schedule = _LambdaSchedule()
+                    self._lambda_schedule.add_stage("restraints_off", self._lambda_schedule.initial())
+                    self._lambda_schedule.set_equation(stage="restraints_off", lever="restraint", equation=1-self._lambda_schedule.lam())
                 else:
                     try:
                         self._lambda_schedule = self._from_hex(lambda_schedule)
