@@ -1352,51 +1352,196 @@ class Config:
                         equation=self._lambda_schedule.final(),
                     )
                 elif lambda_schedule == "dmr_ring_break_morph_reverse":
-                    self._lambda_schedule.set_equation(stage="morph", lever="morse_hard", equation=0)
-                    self._lambda_schedule.set_equation(stage="morph", lever="morse_soft", equation=0)
-                    self._lambda_schedule.set_equation(stage="morph", lever="bond_k", equation=self._lambda_schedule.initial())
-                    self._lambda_schedule.set_equation(stage="morph", lever="bond_length", equation=self._lambda_schedule.initial())
-                    self._lambda_schedule.set_equation(stage="morph", lever="angle_k", equation=self._lambda_schedule.initial())
-                    self._lambda_schedule.set_equation(stage="morph", lever="angle_size", equation=self._lambda_schedule.initial())
-                    self._lambda_schedule.set_equation(stage="morph", lever="torsion_k", equation=self._lambda_schedule.initial())
-                    self._lambda_schedule.set_equation(stage="morph", lever="torsion_phase", equation=self._lambda_schedule.initial())
+                    self._lambda_schedule.set_equation(
+                        stage="morph", lever="morse_hard", equation=0
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="morph", lever="morse_soft", equation=0
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="morph",
+                        lever="bond_k",
+                        equation=self._lambda_schedule.initial(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="morph",
+                        lever="bond_length",
+                        equation=self._lambda_schedule.initial(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="morph",
+                        lever="angle_k",
+                        equation=self._lambda_schedule.initial(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="morph",
+                        lever="angle_size",
+                        equation=self._lambda_schedule.initial(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="morph",
+                        lever="torsion_k",
+                        equation=self._lambda_schedule.initial(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="morph",
+                        lever="torsion_phase",
+                        equation=self._lambda_schedule.initial(),
+                    )
 
-                    self._lambda_schedule.append_stage("bonded_perturb", self._lambda_schedule.final())
-                    self._lambda_schedule.set_equation(stage="bonded_perturb", lever="morse_soft", equation=0+self._lambda_schedule.lam())
-                    self._lambda_schedule.set_equation(stage="bonded_perturb", lever="morse_hard", equation=0)
-                    self._lambda_schedule.set_equation(stage="bonded_perturb", lever="bond_k", equation=self._lambda_schedule.initial())
-                    self._lambda_schedule.set_equation(stage="bonded_perturb", lever="bond_length", equation=self._lambda_schedule.initial())
-                    self._lambda_schedule.set_equation(stage="bonded_perturb", lever="angle_k", equation=(1-self._lambda_schedule.lam())*self._lambda_schedule.initial() + self._lambda_schedule.lam()*self._lambda_schedule.final())
-                    self._lambda_schedule.set_equation(stage="bonded_perturb", lever="angle_size", equation=(1-self._lambda_schedule.lam())*self._lambda_schedule.initial() + self._lambda_schedule.lam()*self._lambda_schedule.final())
-                    self._lambda_schedule.set_equation(stage="bonded_perturb", lever="torsion_k", equation=(1-self._lambda_schedule.lam())*self._lambda_schedule.initial() + self._lambda_schedule.lam()*self._lambda_schedule.final())
-                    self._lambda_schedule.set_equation(stage="bonded_perturb", lever="torsion_phase", equation=(1-self._lambda_schedule.lam())*self._lambda_schedule.initial() + self._lambda_schedule.lam()*self._lambda_schedule.final())
+                    self._lambda_schedule.append_stage(
+                        "bonded_perturb", self._lambda_schedule.final()
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="bonded_perturb",
+                        lever="morse_soft",
+                        equation=0 + self._lambda_schedule.lam(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="bonded_perturb", lever="morse_hard", equation=0
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="bonded_perturb",
+                        lever="bond_k",
+                        equation=self._lambda_schedule.initial(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="bonded_perturb",
+                        lever="bond_length",
+                        equation=self._lambda_schedule.initial(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="bonded_perturb",
+                        lever="angle_k",
+                        equation=(1 - self._lambda_schedule.lam())
+                        * self._lambda_schedule.initial()
+                        + self._lambda_schedule.lam() * self._lambda_schedule.final(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="bonded_perturb",
+                        lever="angle_size",
+                        equation=(1 - self._lambda_schedule.lam())
+                        * self._lambda_schedule.initial()
+                        + self._lambda_schedule.lam() * self._lambda_schedule.final(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="bonded_perturb",
+                        lever="torsion_k",
+                        equation=(1 - self._lambda_schedule.lam())
+                        * self._lambda_schedule.initial()
+                        + self._lambda_schedule.lam() * self._lambda_schedule.final(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="bonded_perturb",
+                        lever="torsion_phase",
+                        equation=(1 - self._lambda_schedule.lam())
+                        * self._lambda_schedule.initial()
+                        + self._lambda_schedule.lam() * self._lambda_schedule.final(),
+                    )
 
-                    self._lambda_schedule.append_stage("potential_swap", self._lambda_schedule.final())
-                    self._lambda_schedule.set_equation(stage="potential_swap", lever="morse_hard", equation=0+self._lambda_schedule.lam())
-                    self._lambda_schedule.set_equation(stage="potential_swap", lever="morse_soft", equation=1-self._lambda_schedule.lam())
-                    self._lambda_schedule.set_equation(stage="potential_swap", lever="bond_k", equation=(1-self._lambda_schedule.lam())*self._lambda_schedule.initial() + self._lambda_schedule.lam()*self._lambda_schedule.final())
-                    self._lambda_schedule.set_equation(stage="potential_swap", lever="bond_length", equation=(1-self._lambda_schedule.lam())*self._lambda_schedule.initial() + self._lambda_schedule.lam()*self._lambda_schedule.final())
-                    self._lambda_schedule.set_equation(stage="potential_swap", lever="angle_k", equation=self._lambda_schedule.final())
-                    self._lambda_schedule.set_equation(stage="potential_swap", lever="angle_size", equation=self._lambda_schedule.final())
-                    self._lambda_schedule.set_equation(stage="potential_swap", lever="torsion_k", equation=self._lambda_schedule.final())
-                    self._lambda_schedule.set_equation(stage="potential_swap", lever="torsion_phase", equation=self._lambda_schedule.final())
+                    self._lambda_schedule.append_stage(
+                        "potential_swap", self._lambda_schedule.final()
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="potential_swap",
+                        lever="morse_hard",
+                        equation=0 + self._lambda_schedule.lam(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="potential_swap",
+                        lever="morse_soft",
+                        equation=1 - self._lambda_schedule.lam(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="potential_swap",
+                        lever="bond_k",
+                        equation=(1 - self._lambda_schedule.lam())
+                        * self._lambda_schedule.initial()
+                        + self._lambda_schedule.lam() * self._lambda_schedule.final(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="potential_swap",
+                        lever="bond_length",
+                        equation=(1 - self._lambda_schedule.lam())
+                        * self._lambda_schedule.initial()
+                        + self._lambda_schedule.lam() * self._lambda_schedule.final(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="potential_swap",
+                        lever="angle_k",
+                        equation=self._lambda_schedule.final(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="potential_swap",
+                        lever="angle_size",
+                        equation=self._lambda_schedule.final(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="potential_swap",
+                        lever="torsion_k",
+                        equation=self._lambda_schedule.final(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="potential_swap",
+                        lever="torsion_phase",
+                        equation=self._lambda_schedule.final(),
+                    )
                 elif lambda_schedule == "dmr_ring_break_morph_restraints_only":
                     self._lambda_schedule = _LambdaSchedule()
-                    self._lambda_schedule.add_stage("restraints_off", self._lambda_schedule.final())
-                    self._lambda_schedule.set_equation(stage="restraints_off", lever="morse_hard", equation=0)
-                    self._lambda_schedule.set_equation(stage="restraints_off", lever="morse_soft", equation=1-self._lambda_schedule.lam())
-
+                    self._lambda_schedule.add_stage(
+                        "restraints_off", self._lambda_schedule.final()
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="restraints_off", lever="morse_hard", equation=0
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="restraints_off",
+                        lever="morse_soft",
+                        equation=1 - self._lambda_schedule.lam(),
+                    )
 
                 elif lambda_schedule == "dmr_ring_break_morph_restraints_ang_tor_only":
                     self._lambda_schedule = _LambdaSchedule()
-                    self._lambda_schedule.add_stage("restraints_off", self._lambda_schedule.final())
-                    self._lambda_schedule.set_equation(stage="restraints_off", lever="morse_hard", equation=0)
-                    self._lambda_schedule.set_equation(stage="restraints_off", lever="morse_soft", equation=1-self._lambda_schedule.lam())
-                    self._lambda_schedule.set_equation(stage="restraints_off", lever="angle_k", equation=(1-self._lambda_schedule.lam())*self._lambda_schedule.initial() + self._lambda_schedule.lam()*self._lambda_schedule.final())
-                    self._lambda_schedule.set_equation(stage="restraints_off", lever="angle_size", equation=(1-self._lambda_schedule.lam())*self._lambda_schedule.initial() + self._lambda_schedule.lam()*self._lambda_schedule.final())
-                    self._lambda_schedule.set_equation(stage="restraints_off", lever="torsion_k", equation=(1-self._lambda_schedule.lam())*self._lambda_schedule.initial() + self._lambda_schedule.lam()*self._lambda_schedule.final())
-                    self._lambda_schedule.set_equation(stage="restraints_off", lever="torsion_phase", equation=(1-self._lambda_schedule.lam())*self._lambda_schedule.initial() + self._lambda_schedule.lam()*self._lambda_schedule.final())
-                    
+                    self._lambda_schedule.add_stage(
+                        "restraints_off", self._lambda_schedule.final()
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="restraints_off", lever="morse_hard", equation=0
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="restraints_off",
+                        lever="morse_soft",
+                        equation=1 - self._lambda_schedule.lam(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="restraints_off",
+                        lever="angle_k",
+                        equation=(1 - self._lambda_schedule.lam())
+                        * self._lambda_schedule.initial()
+                        + self._lambda_schedule.lam() * self._lambda_schedule.final(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="restraints_off",
+                        lever="angle_size",
+                        equation=(1 - self._lambda_schedule.lam())
+                        * self._lambda_schedule.initial()
+                        + self._lambda_schedule.lam() * self._lambda_schedule.final(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="restraints_off",
+                        lever="torsion_k",
+                        equation=(1 - self._lambda_schedule.lam())
+                        * self._lambda_schedule.initial()
+                        + self._lambda_schedule.lam() * self._lambda_schedule.final(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="restraints_off",
+                        lever="torsion_phase",
+                        equation=(1 - self._lambda_schedule.lam())
+                        * self._lambda_schedule.initial()
+                        + self._lambda_schedule.lam() * self._lambda_schedule.final(),
+                    )
+
                 elif lambda_schedule == "ring_break_morph_angles_torsions_first":
                     self._lambda_schedule = _LambdaSchedule.standard_morph()
 
@@ -1655,12 +1800,38 @@ class Config:
                     self._lambda_schedule.add_decouple_stage()
 
                 elif lambda_schedule == "perturb_coulomb_lj":
-                    self._lambda_schedule.append_stage("coulomb", self._lambda_schedule.initial())
-                    self._lambda_schedule.set_equation(stage="coulomb", lever="charge", equation=(1 - self._lambda_schedule.lam())* self._lambda_schedule.initial() + self._lambda_schedule.lam() * self._lambda_schedule.final())
-                    self._lambda_schedule.append_stage("lj", self._lambda_schedule.initial())
-                    self._lambda_schedule.set_equation(stage="lj", lever="charge", equation=self._lambda_schedule.final())
-                    self._lambda_schedule.set_equation(stage="lj", lever="sigma", equation=(1 - self._lambda_schedule.lam())* self._lambda_schedule.initial() + self._lambda_schedule.lam() * self._lambda_schedule.final())
-                    self._lambda_schedule.set_equation(stage="lj", lever="epsilon", equation=(1 - self._lambda_schedule.lam())* self._lambda_schedule.initial() + self._lambda_schedule.lam() * self._lambda_schedule.final())
+                    self._lambda_schedule.append_stage(
+                        "coulomb", self._lambda_schedule.initial()
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="coulomb",
+                        lever="charge",
+                        equation=(1 - self._lambda_schedule.lam())
+                        * self._lambda_schedule.initial()
+                        + self._lambda_schedule.lam() * self._lambda_schedule.final(),
+                    )
+                    self._lambda_schedule.append_stage(
+                        "lj", self._lambda_schedule.initial()
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="lj",
+                        lever="charge",
+                        equation=self._lambda_schedule.final(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="lj",
+                        lever="sigma",
+                        equation=(1 - self._lambda_schedule.lam())
+                        * self._lambda_schedule.initial()
+                        + self._lambda_schedule.lam() * self._lambda_schedule.final(),
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="lj",
+                        lever="epsilon",
+                        equation=(1 - self._lambda_schedule.lam())
+                        * self._lambda_schedule.initial()
+                        + self._lambda_schedule.lam() * self._lambda_schedule.final(),
+                    )
                 elif lambda_schedule == "decharge_decouple":
                     self._lambda_schedule = _LambdaSchedule()
                     self._lambda_schedule.add_decouple_stage()
@@ -1681,12 +1852,24 @@ class Config:
                     )
                 elif lambda_schedule == "restraints_on_no_morph":
                     self._lambda_schedule = _LambdaSchedule()
-                    self._lambda_schedule.add_stage("restraints_on", self._lambda_schedule.initial())
-                    self._lambda_schedule.set_equation(stage="restraints_on", lever="restraint", equation=0+self._lambda_schedule.lam())
+                    self._lambda_schedule.add_stage(
+                        "restraints_on", self._lambda_schedule.initial()
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="restraints_on",
+                        lever="restraint",
+                        equation=0 + self._lambda_schedule.lam(),
+                    )
                 elif lambda_schedule == "restraints_off_morphed":
                     self._lambda_schedule = _LambdaSchedule()
-                    self._lambda_schedule.add_stage("restraints_off", self._lambda_schedule.final())
-                    self._lambda_schedule.set_equation(stage="restraints_off", lever="restraint", equation=1-self._lambda_schedule.lam())
+                    self._lambda_schedule.add_stage(
+                        "restraints_off", self._lambda_schedule.final()
+                    )
+                    self._lambda_schedule.set_equation(
+                        stage="restraints_off",
+                        lever="restraint",
+                        equation=1 - self._lambda_schedule.lam(),
+                    )
                 else:
                     try:
                         self._lambda_schedule = self._from_hex(lambda_schedule)
