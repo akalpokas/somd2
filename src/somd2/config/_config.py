@@ -69,6 +69,7 @@ class Config:
             "standard_morph",
             "charge_scaled_morph",
             "ring_break_morph",
+            "ring_break_morph_zou",
             "reverse_ring_break_morph",
             "annihilate",
             "decouple",
@@ -1104,6 +1105,13 @@ class Config:
 
                     self._lambda_schedule = _ring_break_morph()
                     self._lambda_schedule_name = "ring_break_morph"
+                elif lambda_schedule == "ring_break_morph_zou":
+                    from .._utils._schedules import (
+                        ring_break_morph_zou as _ring_break_morph_zou,
+                    )
+
+                    self._lambda_schedule = _ring_break_morph_zou()
+                    self._lambda_schedule_name = "ring_break_morph_zou"
                 elif lambda_schedule == "reverse_ring_break_morph":
                     from .._utils._schedules import (
                         reverse_ring_break_morph as _reverse_ring_break_morph,
