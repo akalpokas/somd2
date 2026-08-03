@@ -23,6 +23,7 @@ __all__ = [
     "annihilate",
     "decouple",
     "ring_break_morph",
+    "ring_break_morph_zou",
     "reverse_ring_break_morph",
 ]
 
@@ -314,3 +315,138 @@ def reverse_ring_break_morph():
         The lambda schedule.
     """
     return ring_break_morph().reverse()
+
+
+def ring_break_morph_zou():
+    """
+    Build a lambda schedule for ring-breaking perturbations using auxiliary restraints (Zou).
+
+    Three stages: potential_swap → restraints_off → morph.
+
+    During restraints_off the auxiliary restraint ramps off while
+    the ring-break softcore simultaneously ramps on (alpha: 1→0, kappa: 0→1),
+    equations mirror ring-break so that ``ring_break_morph().reverse()`` is the
+    providing a smooth handover with no gap between the two forces. The ring-make
+    correct schedule for the ring-making direction (used by
+    :func:`reverse_ring_break_morph`). Because ring_break_morph is only used for
+    ring-breaking perturbations (no ring-make force present), the ring-make
+    equations have no effect on forward simulations.
+
+    Returns
+    -------
+
+    schedule : sire.legacy.CAS.LambdaSchedule
+        The lambda schedule.
+    """
+    from sire.cas import LambdaSchedule as _LambdaSchedule
+
+    s = _LambdaSchedule.standard_morph()
+
+    # restraints_off [1/3, 2/3): Auxiliary restraint ramps off while ring-break softcore ramps
+    # on simultaneously (alpha: 1→0, kappa: 0→1). Bonded terms (angles, torsions)
+    # interpolate initial→final over the same stage. ring-make mirrors ring-break
+    # so that after .reverse(), the ring-make softcore ramps off as auxiliary restraint ramps
+    # on in the reversed restraints_off stage, correct for ring-making perturbations.
+    s.prepend_stage("restraints_off", s.initial())
+    s.set_equation(stage="restraints_off", lever="restraint", equation=1 - s.lam())
+    s.set_equation(stage="restraints_off", lever="bond_k", equation=s.final())
+    s.set_equation(stage="restraints_off", lever="bond_length", equation=s.final())
+    s.set_equation(
+        stage="restraints_off",
+        lever="angle_k",
+        equation=(1 - s.lam()) * s.initial() + s.lam() * s.final(),
+    )
+    s.set_equation(
+        stage="restraints_off",
+        lever="angle_size",
+        equation=(1 - s.lam()) * s.initial() + s.lam() * s.final(),
+    )
+    s.set_equation(
+        stage="restraints_off",
+        lever="torsion_k",
+        equation=(1 - s.lam()) * s.initial() + s.lam() * s.final(),
+    )
+    s.set_equation(
+        stage="restraints_off",
+        lever="torsion_phase",
+        equation=(1 - s.lam()) * s.initial() + s.lam() * s.final(),
+    )
+    s.set_equation(
+        stage="restraints_off", force="ring-break", lever="alpha", equation=1 - s.lam()
+    )
+    s.set_equation(
+        stage="restraints_off", force="ring-break", lever="kappa", equation=s.lam()
+    )
+    s.set_equation(
+        stage="restraints_off", force="ring-make", lever="alpha", equation=1 - s.lam()
+    )
+    s.set_equation(
+        stage="restraints_off", force="ring-make", lever="kappa", equation=s.lam()
+    )
+
+    s.prepend_stage("potential_swap", s.initial())
+    s.set_equation(stage="potential_swap", lever="restraint", equation=0 + s.lam())
+    s.set_equation(
+        stage="potential_swap",
+        lever="bond_k",
+        equation=(1 - s.lam()) * s.initial() + s.lam() * s.final(),
+    )
+    s.set_equation(
+        stage="potential_swap",
+        lever="bond_length",
+        equation=(1 - s.lam()) * s.initial() + s.lam() * s.final(),
+    )
+    s.set_equation(stage="potential_swap", lever="angle_k", equation=s.initial())
+    s.set_equation(stage="potential_swap", lever="angle_size", equation=s.initial())
+    s.set_equation(stage="potential_swap", lever="torsion_k", equation=s.initial())
+    s.set_equation(stage="potential_swap", lever="torsion_phase", equation=s.initial())
+    # Softcore off throughout potential_swap: explicit constants so the schedule
+    # visualises correctly regardless of the initial/final values passed by the caller.
+    s.set_equation(
+        stage="potential_swap", force="ring-break", lever="alpha", equation=1
+    )
+    s.set_equation(
+        stage="potential_swap", force="ring-break", lever="kappa", equation=0
+    )
+    s.set_equation(stage="potential_swap", force="ring-make", lever="alpha", equation=1)
+    s.set_equation(stage="potential_swap", force="ring-make", lever="kappa", equation=0)
+
+    # morph [2/3, 1]: standard nonbonded morphing with ring-break/ring-make fixed
+    # at fully open (kappa=1, alpha=0). ring-make mirrors ring-break so .reverse()
+    # gives kappa=1 at lam=0 of the reversed morph stage (ring-making start).
+    s.set_equation(stage="morph", lever="restraint", equation=0)
+    s.set_equation(stage="morph", lever="bond_k", equation=s.final())
+    s.set_equation(stage="morph", lever="bond_length", equation=s.final())
+    s.set_equation(stage="morph", lever="angle_k", equation=s.final())
+    s.set_equation(stage="morph", lever="angle_size", equation=s.final())
+    s.set_equation(stage="morph", lever="torsion_k", equation=s.final())
+    s.set_equation(stage="morph", lever="torsion_phase", equation=s.final())
+    s.set_equation(stage="morph", force="ring-break", lever="alpha", equation=0)
+    s.set_equation(stage="morph", force="ring-break", lever="kappa", equation=1)
+    s.set_equation(stage="morph", force="ring-make", lever="alpha", equation=0)
+    s.set_equation(stage="morph", force="ring-make", lever="kappa", equation=1)
+
+    # coul_kappa: zero through both bonded stages so the CLJ exception carries no
+    # charge while atoms are at covalent distances; ramps 0→1 in morph only once
+    # the softcore has already separated the atoms. ring-make mirrors ring-break
+    # so .reverse() gives coul_kappa ramps 1→0 through the reversed morph stage.
+    s.set_equation(
+        stage="potential_swap", force="ring-break", lever="coul_kappa", equation=0
+    )
+    s.set_equation(
+        stage="restraints_off", force="ring-break", lever="coul_kappa", equation=0
+    )
+    s.set_equation(
+        stage="morph", force="ring-break", lever="coul_kappa", equation=s.lam()
+    )
+    s.set_equation(
+        stage="potential_swap", force="ring-make", lever="coul_kappa", equation=0
+    )
+    s.set_equation(
+        stage="restraints_off", force="ring-make", lever="coul_kappa", equation=0
+    )
+    s.set_equation(
+        stage="morph", force="ring-make", lever="coul_kappa", equation=s.lam()
+    )
+
+    return s
