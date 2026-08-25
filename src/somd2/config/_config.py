@@ -159,6 +159,7 @@ class Config:
         gcmc_tolerance=0.0,
         use_dispersion_correction=False,
         rest2_scale=1.0,
+        rest2_lambda_max=0.5,
         rest2_selection=None,
         softcore_form="zacharias",
         taylor_power=1,
@@ -503,10 +504,22 @@ class Config:
             This is the factor by which the temperature of the solute is scaled with respect to
             the rest of the system. This can either be a single scaling factor, or a list of
             scale factors for each lambda window. When a single scaling factor is used, then
-            the scale factor will be interpolated between a value of 1.0 in the end states,
-            and the value of 'rest2_scale' in intermediate lambda = 0.5 state. When multiple
-            values are used, then the number should match the number of lambda windows at which
-            energies are sampled.
+            the scale factor will be interpolated between a value of 1.0 at the unscaled end
+            state(s), and the value of 'rest2_scale' at the lambda value given by
+            'rest2_lambda_max' (0.5 by default). When multiple values are used, then the
+            number should match the number of lambda windows at which energies are sampled.
+
+        rest2_lambda_max: float
+            The lambda value at which the REST2 scaling factor is maximised, i.e. where it
+            reaches the value of 'rest2_scale'. Must be between 0 and 1. The default of 0.5
+            gives the standard symmetric ramp, which is unscaled at both end states and
+            interpolates linearly to 'rest2_scale' at lambda = 0.5. Any other value gives an
+            asymmetric ramp, which uses geometric interpolation, i.e. the scale factor is
+            'rest2_scale' raised to the power of the ramp fraction. For example, a value of
+            1.0 gives a monotonically increasing ramp that is unscaled at lambda = 0 and
+            maximally scaled at lambda = 1. Note that when the ramp peaks at an end state,
+            that end state is no longer described by the unmodified Hamiltonian, so any free
+            energy computed from it refers to the REST2 scaled end state.
 
         rest2_selection: str
             A sire selection string for atoms to include in the REST2 region in
@@ -714,6 +727,7 @@ class Config:
         self.gcmc_tolerance = gcmc_tolerance
         self.use_dispersion_correction = use_dispersion_correction
         self.rest2_scale = rest2_scale
+        self.rest2_lambda_max = rest2_lambda_max
         self.rest2_selection = rest2_selection
         self.restart = restart
         self.use_backup = use_backup
@@ -2239,6 +2253,22 @@ class Config:
         if len(rest2_scale) == 1:
             rest2_scale = rest2_scale[0]
         self._rest2_scale = rest2_scale
+
+    @property
+    def rest2_lambda_max(self):
+        return self._rest2_lambda_max
+
+    @rest2_lambda_max.setter
+    def rest2_lambda_max(self, rest2_lambda_max):
+        try:
+            rest2_lambda_max = float(rest2_lambda_max)
+        except:
+            raise ValueError("'rest2_lambda_max' must be of type 'float'")
+
+        if not 0.0 <= rest2_lambda_max <= 1.0:
+            raise ValueError("'rest2_lambda_max' must be between 0 and 1")
+
+        self._rest2_lambda_max = rest2_lambda_max
 
     @property
     def rest2_selection(self):

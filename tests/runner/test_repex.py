@@ -114,6 +114,112 @@ def test_rest2_scale(ethane_methanol, rest2_scale, is_valid):
 
 
 @pytest.mark.parametrize(
+    "rest2_scale, rest2_lambda_max, is_valid",
+    [
+        # An asymmetric ramp allows the end state at which it peaks to be scaled.
+        ([1.0, 2.0, 4.0], 1.0, True),
+        ([4.0, 2.0, 1.0], 0.0, True),
+        # ...but the other end state must still be unscaled.
+        ([2.0, 2.0, 4.0], 1.0, False),
+        ([4.0, 2.0, 2.0], 0.0, False),
+        # An intermediate peak requires both end states to be unscaled.
+        ([1.0, 2.0, 4.0], 0.75, False),
+        ([1.0, 4.0, 1.0], 0.75, True),
+    ],
+)
+def test_rest2_asymmetric_scale(
+    ethane_methanol, rest2_scale, rest2_lambda_max, is_valid
+):
+    """Validate the REST2 scale factor handling for asymmetric ramps."""
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config = {
+            "runtime": "12fs",
+            "restart": False,
+            "output_directory": tmpdir,
+            "energy_frequency": "4fs",
+            "checkpoint_frequency": "4fs",
+            "frame_frequency": "4fs",
+            "platform": "CPU",
+            "max_threads": 1,
+            "num_lambda": 3,
+            "replica_exchange": True,
+            "rest2_scale": rest2_scale,
+            "rest2_lambda_max": rest2_lambda_max,
+        }
+
+        # Instantiate a runner using the config defined above.
+        if is_valid:
+            runner = RunnerBase(ethane_methanol, Config(**config))
+            assert runner._rest2_scale_factors == rest2_scale
+        else:
+            with pytest.raises(ValueError):
+                runner = RunnerBase(ethane_methanol, Config(**config))
+
+
+def test_rest2_scale_factors(ethane_methanol):
+    """Validate the REST2 scale factors generated from a single scale factor."""
+
+    base_config = {
+        "restart": False,
+        "platform": "CPU",
+        "max_threads": 1,
+        "num_lambda": 5,
+        "replica_exchange": True,
+        "rest2_scale": 4.0,
+    }
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Symmetric ramp: linear interpolation, peaked at lambda = 0.5.
+        runner = RunnerBase(
+            ethane_methanol,
+            Config(**base_config, output_directory=tmpdir),
+        )
+        assert runner._rest2_scale_factors == pytest.approx([1.0, 2.5, 4.0, 2.5, 1.0])
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Asymmetric ramp: geometric interpolation, peaked at lambda = 1.
+        runner = RunnerBase(
+            ethane_methanol,
+            Config(**base_config, output_directory=tmpdir, rest2_lambda_max=1.0),
+        )
+        assert runner._rest2_scale_factors == pytest.approx(
+            [1.0, 4.0**0.25, 4.0**0.5, 4.0**0.75, 4.0]
+        )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Asymmetric ramp: geometric interpolation, peaked at lambda = 0.
+        runner = RunnerBase(
+            ethane_methanol,
+            Config(**base_config, output_directory=tmpdir, rest2_lambda_max=0.0),
+        )
+        assert runner._rest2_scale_factors == pytest.approx(
+            [4.0, 4.0**0.75, 4.0**0.5, 4.0**0.25, 1.0]
+        )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Asymmetric ramp with an intermediate peak: unscaled at both end states.
+        runner = RunnerBase(
+            ethane_methanol,
+            Config(**base_config, output_directory=tmpdir, rest2_lambda_max=0.75),
+        )
+        assert runner._rest2_scale_factors == pytest.approx(
+            [1.0, 4.0 ** (1 / 3), 4.0 ** (2 / 3), 4.0, 1.0]
+        )
+
+
+@pytest.mark.parametrize(
+    "rest2_lambda_max",
+    [-0.1, 1.1, "invalid"],
+)
+def test_invalid_rest2_lambda_max(rest2_lambda_max):
+    """Validate that an invalid 'rest2_lambda_max' raises an exception."""
+
+    with pytest.raises(ValueError):
+        Config(rest2_lambda_max=rest2_lambda_max)
+
+
+@pytest.mark.parametrize(
     "rest2_selection, is_valid",
     [
         ("resname LIG", True),

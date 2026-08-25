@@ -501,17 +501,22 @@ class RunnerBase:
         # Set the REST2 scale factors.
         is_rest2 = False
         if self._config.rest2_scale is not None:
-            # Single value. Interpolate between 1.0 at the end states and rest2_scale
-            # at lambda = 0.5.
+            lambda_max = self._config.rest2_lambda_max
+
+            # A symmetric ramp (the default) is unscaled at both end states, whereas
+            # an asymmetric ramp peaks at 'rest2_lambda_max', so can be scaled at an
+            # end state.
+            is_symmetric = isclose(lambda_max, 0.5, abs_tol=1e-4)
+
+            # Single value. Interpolate between 1.0 at the unscaled end state(s) and
+            # rest2_scale at lambda = rest2_lambda_max.
             if isinstance(self._config.rest2_scale, float):
-                scale_factors = []
-                for lambda_value in self._lambda_energy:
-                    scale_factors.append(
-                        1.0
-                        + (self._config.rest2_scale - 1.0)
-                        * (1.0 - 2.0 * abs(lambda_value - 0.5))
+                self._rest2_scale_factors = [
+                    self._get_rest2_scale_factor(
+                        lambda_value, self._config.rest2_scale, lambda_max
                     )
-                self._rest2_scale_factors = scale_factors
+                    for lambda_value in self._lambda_energy
+                ]
             else:
                 if len(self._config.rest2_scale) != len(self._lambda_energy):
                     msg = f"Length of 'rest2_scale' must match the number of {_lam_sym} values."
@@ -520,13 +525,19 @@ class RunnerBase:
                         "add them to `lambda_energy`, along with the corresponding `rest2_scale` values."
                     _logger.error(msg)
                     raise ValueError(msg)
-                # Make sure the end states are close to 1.0.
-                if isclose(self._lambda_energy[0], 0.0, abs_tol=1e-4):
+                # Make sure the end states are close to 1.0. This check is skipped for
+                # an end state at which the ramp is maximally scaled, i.e. when
+                # 'rest2_lambda_max' is 0 or 1.
+                if lambda_max > 0.0 and isclose(
+                    self._lambda_energy[0], 0.0, abs_tol=1e-4
+                ):
                     if not isclose(self._config.rest2_scale[0], 1.0, abs_tol=1e-4):
                         msg = f"'rest2_scale' must be 1.0 at {_lam_sym}=0."
                         _logger.error(msg)
                         raise ValueError(msg)
-                if isclose(self._lambda_energy[-1], 1.0, abs_tol=1e-4):
+                if lambda_max < 1.0 and isclose(
+                    self._lambda_energy[-1], 1.0, abs_tol=1e-4
+                ):
                     if not isclose(self._config.rest2_scale[-1], 1.0, abs_tol=1e-4):
                         msg = f"'rest2_scale' must be 1.0 at {_lam_sym}=1."
                         _logger.error(msg)
@@ -539,7 +550,26 @@ class RunnerBase:
                 for factor in self._rest2_scale_factors
             ):
                 is_rest2 = True
+                if not is_symmetric:
+                    _logger.info(
+                        f"Using an asymmetric REST2 ramp, maximised at {_lam_sym}={lambda_max}."
+                    )
                 _logger.info(f"REST2 scaling factors: {self._rest2_scale_factors}")
+
+                # Warn if an end state is scaled, since it is then no longer described
+                # by the unmodified Hamiltonian.
+                for lambda_value, factor in zip(
+                    self._lambda_energy, self._rest2_scale_factors
+                ):
+                    if isclose(lambda_value, 0.0, abs_tol=1e-4) or isclose(
+                        lambda_value, 1.0, abs_tol=1e-4
+                    ):
+                        if not isclose(factor, 1.0, abs_tol=1e-4):
+                            _logger.warning(
+                                f"REST2 scaling of {factor:.3f} is applied at {_lam_sym}={lambda_value}. "
+                                "This end state is not described by the unmodified Hamiltonian, so any "
+                                "free energy computed from it refers to the REST2 scaled end state."
+                            )
 
         # Make sure the REST2 selection is valid.
         if self._config.rest2_selection is not None:
@@ -1321,6 +1351,54 @@ class RunnerBase:
                             f"Constraints are at not the same at {_lam_sym} = 0 and {_lam_sym} = 1."
                         )
                         break
+
+    @staticmethod
+    def _get_rest2_scale_factor(lambda_value, scale, lambda_max=0.5):
+        """
+        Internal function to compute the REST2 scale factor at a given lambda value.
+
+        Parameters
+        ----------
+
+        lambda_value: float
+            The lambda value at which to compute the scale factor.
+
+        scale: float
+            The maximum REST2 scale factor, i.e. the value of the ramp at
+            lambda = lambda_max.
+
+        lambda_max: float
+            The lambda value at which the ramp is maximally scaled. A value of 0.5
+            (the default) gives the standard symmetric ramp, which interpolates
+            linearly between 1.0 at the end states and 'scale' at lambda = 0.5. Any
+            other value gives an asymmetric ramp, which interpolates geometrically
+            between 1.0 at the unscaled end state and 'scale' at lambda = lambda_max.
+
+        Returns
+        -------
+
+        scale_factor: float
+            The REST2 scale factor at this lambda value.
+        """
+
+        from math import isclose
+
+        # Symmetric ramp: linear interpolation.
+        if isclose(lambda_max, 0.5, abs_tol=1e-4):
+            return 1.0 + (scale - 1.0) * (1.0 - 2.0 * abs(lambda_value - 0.5))
+
+        # Asymmetric ramp. Work out the fraction of the way along the ramp, where
+        # 0 is unscaled and 1 is maximally scaled.
+        if lambda_value <= lambda_max:
+            # When lambda_max is zero, the only lambda value in this branch is zero
+            # itself, which is the maximally scaled end state.
+            fraction = lambda_value / lambda_max if lambda_max > 0.0 else 1.0
+        else:
+            fraction = (1.0 - lambda_value) / (1.0 - lambda_max)
+
+        # Geometric interpolation, i.e. a geometric ladder of scale factors between
+        # 1.0 and 'scale'.
+        return scale**fraction
 
     @staticmethod
     def _get_charge_difference(system):
