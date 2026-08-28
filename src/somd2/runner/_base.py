@@ -207,7 +207,8 @@ class RunnerBase:
                     if c0 != c1:
                         msg = (
                             "End-state connectivities are different. If this is a ring-breaking "
-                            "perturbation, please set 'lambda_schedule_name' to 'ring_breaking'."
+                            "perturbation, please set 'lambda_schedule_name' to 'ring_break_morph' "
+                            "(or 'reverse_ring_break_morph' for the reverse perturbation)."
                         )
                         _logger.warning(msg)
                         break
@@ -1700,10 +1701,10 @@ class RunnerBase:
                     restraint_distance,
                 )
 
-                try:
-                    restraints.add(restraint)
-                except:
+                if restraints is None:
                     restraints = restraint
+                else:
+                    restraints.add(restraint)
 
             # Update the system.
             system.update(merged)
